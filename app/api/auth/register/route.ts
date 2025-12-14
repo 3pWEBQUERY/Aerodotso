@@ -42,7 +42,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ user: data }, { status: 201 });
+    // Automatisch erstes Workspace für neuen User erstellen
+    const userName = email.split("@")[0];
+    const { data: workspace, error: workspaceError } = await supabase
+      .from("workspaces")
+      .insert({ 
+        user_id: data.id, 
+        name: `${userName}'s Workspace` 
+      })
+      .select("id")
+      .single();
+
+    if (workspaceError) {
+      console.error("Error creating workspace for new user:", workspaceError);
+    }
+
+    return NextResponse.json({ 
+      user: data,
+      workspace: workspace 
+    }, { status: 201 });
   } catch (error) {
     console.error("Register error", error);
     return NextResponse.json(

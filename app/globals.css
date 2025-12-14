@@ -127,3 +127,8 @@
     font-weight: 400;
   }
 }
+
+.mask-linear-fade {
+  mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+}

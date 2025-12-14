@@ -16,7 +16,8 @@ export type NodeType =
   | 'ai-generator' 
   | 'group'
   | 'audio'
-  | 'url';
+  | 'url'
+  | 'social-post';
 
 export type ConnectionType = 
   | 'reference'      // Used as reference/inspiration
@@ -151,6 +152,24 @@ export interface AudioNodeData extends BaseNodeData {
   mediaLibraryId?: string;
 }
 
+export interface SocialPostNodeData extends BaseNodeData {
+  type: 'social-post';
+  url: string;
+  platform?: string;
+  postId?: string;
+  post?: unknown; // SocialPost type from social/types
+  status: 'idle' | 'loading' | 'loaded' | 'error';
+  error?: {
+    type: string;
+    message: string;
+    platform: string;
+  };
+  displayMode: 'compact' | 'full' | 'expanded';
+  theme: 'light' | 'dark' | 'auto';
+  showMetrics: boolean;
+  lastRefreshed?: Date;
+}
+
 // Union type for all node data types
 export type CanvasNodeData = 
   | ImageNodeData 
@@ -161,7 +180,8 @@ export type CanvasNodeData =
   | AIChatNodeData 
   | AIGeneratorNodeData 
   | GroupNodeData
-  | AudioNodeData;
+  | AudioNodeData
+  | SocialPostNodeData;
 
 // ============================================================================
 // AI TYPES
@@ -460,5 +480,6 @@ export const NodeSizeDefaults: Record<NodeType, { width: number; height: number 
   'ai-generator': { width: 340, height: 380 },
   'group': { width: 400, height: 300 },
   'audio': { width: 280, height: 100 },
-  'url': { width: 280, height: 160 }
+  'url': { width: 280, height: 160 },
+  'social-post': { width: 400, height: 450 }
 };

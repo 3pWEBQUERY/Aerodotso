@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -24,31 +25,46 @@ export async function GET() {
     return NextResponse.json({ error: "No avatar found" }, { status: 404 });
   }
 
-  // Extract the storage path from the URL
-  const url = new URL(user.avatar_url);
-  const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/profileimage\/(.+)/);
+  // Extract the storage path from the URL (Railway presigned URLs have the key in the path)
+  // Try to extract path from Railway Storage URL or fall back to stored path pattern
+  let storagePath: string | null = null;
   
-  if (!pathMatch) {
+  try {
+    const url = new URL(user.avatar_url);
+    // Railway URLs have the bucket name as subdomain and key in path
+    // e.g., https://bucket-name.storage.railway.app/profileimage/userId/file.jpg
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    if (pathParts.length > 0) {
+      storagePath = pathParts.join('/');
+    }
+  } catch {
+    // If URL parsing fails, try legacy Supabase pattern
+    const pathMatch = user.avatar_url.match(/profileimage\/(.+?)(?:\?|$)/);
+    if (pathMatch) {
+      storagePath = `profileimage/${pathMatch[1]}`;
+    }
+  }
+  
+  if (!storagePath) {
     return NextResponse.json({ error: "Invalid avatar URL" }, { status: 400 });
   }
 
-  const storagePath = decodeURIComponent(pathMatch[1]);
-
-  // Download the file from storage
-  const { data, error } = await supabase.storage
-    .from("profileimage")
-    .download(storagePath);
+  // Download the file from Railway Storage
+  const storage = getRailwayStorage();
+  const { data, error } = await storage.download(storagePath);
 
   if (error || !data) {
     console.error("Error downloading avatar:", error);
     return NextResponse.json({ error: "Failed to download avatar" }, { status: 500 });
   }
 
+  // Get content type from metadata
+  const { contentType } = await storage.getMetadata(storagePath);
+
   // Return the image
-  const arrayBuffer = await data.arrayBuffer();
-  return new NextResponse(arrayBuffer, {
+  return new NextResponse(new Uint8Array(data), {
     headers: {
-      "Content-Type": data.type || "image/jpeg",
+      "Content-Type": contentType || "image/jpeg",
       "Cache-Control": "public, max-age=3600",
     },
   });

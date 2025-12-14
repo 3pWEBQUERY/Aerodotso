@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 import { randomUUID } from "node:crypto";
+import { createNotification } from "@/lib/notifications";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,18 +17,18 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createSupabaseServerClient();
+    const storage = getRailwayStorage();
 
     const ext = file.name.split(".").pop() || "";
-    const storagePath = `uploads/${randomUUID()}${ext ? `.${ext}` : ""}`;
+    const storagePath = `documents/uploads/${randomUUID()}${ext ? `.${ext}` : ""}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("documents")
-      .upload(storagePath, buffer, {
-        contentType: file.type,
-      });
+    // Upload to Railway Storage Bucket
+    const { error: uploadError } = await storage.upload(storagePath, buffer, {
+      contentType: file.type,
+    });
 
     if (uploadError) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
@@ -57,6 +61,25 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({ documentId: inserted.id }),
       }).catch((err) => console.error("Failed to trigger processing:", err));
     }, randomDelay);
+
+    // Create notification for upload
+    const session = await getServerSession(authOptions);
+    if (session?.user && workspaceId) {
+      const userId = (session.user as any).id;
+      const fileType = file.type.startsWith("image/") ? "Image" : 
+                       file.type.startsWith("video/") ? "Video" : 
+                       file.type === "application/pdf" ? "PDF" : "File";
+      await createNotification({
+        userId,
+        workspaceId,
+        title: `${fileType} uploaded`,
+        message: file.name,
+        type: "success",
+        actionType: "upload",
+        link: `/workspace/${workspaceId}/document/${inserted.id}`,
+        metadata: { fileName: file.name, fileType: file.type, fileSize: file.size },
+      });
+    }
 
     return NextResponse.json(
       {

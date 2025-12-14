@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,16 +31,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const storagePath = `drawings/${documentId}/${randomUUID()}.png`;
+    const storagePath = `documents/drawings/${documentId}/${randomUUID()}.png`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const { error: uploadError } = await supabase.storage
-      .from("documents")
-      .upload(storagePath, buffer, {
-        contentType: "image/png",
-      });
+    // Upload to Railway Storage Bucket
+    const storage = getRailwayStorage();
+    const { error: uploadError } = await storage.upload(storagePath, buffer, {
+      contentType: "image/png",
+    });
 
     if (uploadError) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
@@ -60,15 +61,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: insertError?.message }, { status: 500 });
     }
 
-    const { data: signed } = await supabase.storage
-      .from("documents")
-      .createSignedUrl(storagePath, 60 * 60);
+    const { signedUrl: signed } = await storage.createSignedUrl(storagePath, 60 * 60);
 
     return NextResponse.json(
       {
         version: {
           ...inserted,
-          signedUrl: signed?.signedUrl ?? null,
+          signedUrl: signed ?? null,
         },
       },
       { status: 200 }

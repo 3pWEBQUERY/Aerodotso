@@ -9,6 +9,7 @@ import { AnimatedFolder } from "@/components/workspace/animated-folder";
 import { SelectionActionBar } from "@/components/workspace/selection-action-bar";
 import { PageToolbar, ViewMode, SortOption } from "@/components/workspace/page-toolbar";
 import { MediaCard } from "@/components/workspace/media-card";
+import { VideoCard } from "@/components/workspace/video-card";
 import {
   Popover,
   PopoverContent,
@@ -346,7 +347,7 @@ export default function WorkspaceMediaPage() {
           folderType="documents"
           primaryAction={
             <>
-              <input type="file" ref={fileInputRef} onChange={handleUpload} multiple accept="image/*,application/pdf" className="hidden" />
+              <input type="file" ref={fileInputRef} onChange={handleUpload} multiple accept="image/*,video/*,application/pdf" className="hidden" />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -424,6 +425,22 @@ export default function WorkspaceMediaPage() {
                       />
                     );
                   }
+
+                  if (doc.mime_type?.startsWith("video/") && doc.previewUrl) {
+                    return (
+                      <VideoCard
+                        key={doc.id}
+                        src={doc.previewUrl}
+                        alt={doc.title}
+                        title={doc.title}
+                        isSelected={selectedDocs.has(doc.id)}
+                        isStarred={doc.is_starred}
+                        onCheckboxClick={() => toggleDocSelection(doc.id)}
+                        href={`/workspace/${workspaceId}/document/${doc.id}`}
+                      />
+                    );
+                  }
+
                   // PDF with preview
                   if (doc.mime_type === "application/pdf" && doc.previewUrl) {
                     return (
@@ -598,17 +615,17 @@ export default function WorkspaceMediaPage() {
 
             {/* Panel Toolbar */}
             <div className="flex items-center justify-end px-3 py-2 border-b">
-              <div className="flex items-center gap-1 bg-white border rounded-full shadow-sm px-1.5 py-0.5">
-                <button type="button" className="p-1.5 hover:bg-muted rounded-full">
+              <div className="flex items-center gap-1 bg-white border rounded-xl shadow-sm px-1.5 py-0.5">
+                <button type="button" className="p-1.5 hover:bg-muted rounded-xl">
                   <Pencil className="h-3 w-3 text-muted-foreground" />
                 </button>
-                <button type="button" className="p-1.5 hover:bg-muted rounded-full">
+                <button type="button" className="p-1.5 hover:bg-muted rounded-xl">
                   <Download className="h-3 w-3 text-muted-foreground" />
                 </button>
                 <button 
                   type="button"
                   onClick={() => doc.previewUrl && window.open(doc.previewUrl, "_blank")}
-                  className="p-1.5 hover:bg-muted rounded-full"
+                  className="p-1.5 hover:bg-muted rounded-xl"
                 >
                   <Maximize2 className="h-3 w-3 text-muted-foreground" />
                 </button>

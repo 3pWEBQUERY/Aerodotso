@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -54,36 +55,17 @@ export async function POST(req: NextRequest) {
 
     // Generate unique filename
     const fileExt = file.name.split(".").pop() || "jpg";
-    const fileName = `${noteId}/${Date.now()}.${fileExt}`;
+    const fileName = `note-images/${noteId}/${Date.now()}.${fileExt}`;
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Check if bucket exists, create if not
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some(b => b.name === "note-images");
-    
-    if (!bucketExists) {
-      const { error: createBucketError } = await supabase.storage.createBucket("note-images", {
-        public: true,
-      });
-      if (createBucketError) {
-        console.error("Create bucket error:", createBucketError);
-        return NextResponse.json(
-          { error: `Failed to create bucket: ${createBucketError.message}` },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Upload to Supabase Storage (note-images bucket)
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("note-images")
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        upsert: true,
-      });
+    // Upload to Railway Storage Bucket
+    const storage = getRailwayStorage();
+    const { error: uploadError } = await storage.upload(fileName, buffer, {
+      contentType: file.type,
+    });
 
     if (uploadError) {
       console.error("Upload error:", uploadError);
@@ -93,12 +75,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("note-images")
-      .getPublicUrl(fileName);
+    // Get signed URL (Railway buckets are private)
+    const { signedUrl, error: urlError } = await storage.createSignedUrl(fileName, 60 * 60 * 24 * 365);
 
-    const coverImageUrl = urlData.publicUrl;
+    if (urlError || !signedUrl) {
+      console.error("Signed URL error:", urlError);
+      return NextResponse.json(
+        { error: "Failed to create URL" },
+        { status: 500 }
+      );
+    }
+
+    const coverImageUrl = signedUrl;
     console.log("Cover image URL:", coverImageUrl);
 
     // Update the note with the cover image URL

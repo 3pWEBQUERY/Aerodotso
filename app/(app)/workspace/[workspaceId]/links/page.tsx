@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link2, Trash2, Plus, X, Loader2, FolderClosed } from "lucide-react";
+import { isValidUrl, isSocialMediaUrl, detectPlatform } from "@/lib/social/platform-detector";
 import { SelectionActionBar } from "@/components/workspace/selection-action-bar";
 import { PageToolbar, ViewMode, SortOption } from "@/components/workspace/page-toolbar";
 import { AnimatedFolder } from "@/components/workspace/animated-folder";
@@ -159,6 +160,33 @@ export default function WorkspaceLinksPage() {
     }
   }, [dialogOpen]);
 
+  // Handle global paste event (Cmd+V / Ctrl+V)
+  useEffect(() => {
+    const handlePaste = async (event: ClipboardEvent) => {
+      // Don't handle paste if user is typing in an input or dialog is already open
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      const text = event.clipboardData?.getData('text/plain')?.trim();
+      if (!text) return;
+
+      // Check if it's a valid URL
+      if (!isValidUrl(text)) return;
+
+      // Prevent default paste behavior
+      event.preventDefault();
+
+      // Open dialog and set the pasted URL
+      setLinkInput(text);
+      setDialogOpen(true);
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, []);
+
   // Fetch preview when URL changes (debounced)
   useEffect(() => {
     if (previewTimeoutRef.current) {
@@ -228,6 +256,10 @@ export default function WorkspaceLinksPage() {
       url = "https://" + url;
     }
 
+    // Detect platform for social media URLs
+    const detected = detectPlatform(url);
+    const linkType = detected?.platform || undefined;
+
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/links", {
@@ -239,6 +271,7 @@ export default function WorkspaceLinksPage() {
           title: preview?.title || getDomain(url),
           description: preview?.description || null,
           thumbnail_url: preview?.image || null,
+          link_type: linkType,
         }),
       });
       
@@ -390,13 +423,13 @@ export default function WorkspaceLinksPage() {
 
       {/* Paste Link Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg overflow-hidden">
           <DialogHeader>
             <DialogTitle>Paste a link</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-hidden">
             <div className="relative">
-              <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
               <input
                 ref={linkInputRef}
                 type="text"
@@ -404,7 +437,7 @@ export default function WorkspaceLinksPage() {
                 value={linkInput}
                 onChange={(e) => setLinkInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !isLoadingPreview && handlePasteLink()}
-                className="w-full pl-10 pr-10 py-3 border-2 border-emerald-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full pl-10 pr-10 py-3 border-2 border-emerald-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 overflow-hidden text-ellipsis"
               />
               {linkInput && (
                 <button

@@ -45,20 +45,20 @@ interface AIModel {
   id: string;
   name: string;
   provider: "eden" | "openai" | "anthropic" | "google";
-  icon: string;
+  logo: string;
 }
 
 const AI_MODELS: AIModel[] = [
-  { id: "best", name: "Best", provider: "eden", icon: "✦" },
-  { id: "gpt-5.1", name: "GPT-5.1", provider: "openai", icon: "◐" },
-  { id: "gpt-5", name: "GPT-5", provider: "openai", icon: "◐" },
-  { id: "gpt-4o", name: "GPT-4o", provider: "openai", icon: "◐" },
-  { id: "claude-haiku-4.5", name: "Claude Haiku 4.5", provider: "anthropic", icon: "✳" },
-  { id: "claude-sonnet-4.5", name: "Claude Sonnet 4.5", provider: "anthropic", icon: "✳" },
-  { id: "claude-opus-4.5", name: "Claude Opus 4.5", provider: "anthropic", icon: "✳" },
-  { id: "gemini-3-pro", name: "Gemini 3 Pro", provider: "google", icon: "✦" },
-  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "google", icon: "✦" },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "google", icon: "✦" },
+  { id: "best", name: "Best", provider: "eden", logo: "/symbol-black.svg" },
+  { id: "gpt-5.1", name: "GPT-5.1", provider: "openai", logo: "/openai.png" },
+  { id: "gpt-5", name: "GPT-5", provider: "openai", logo: "/openai.png" },
+  { id: "gpt-4o", name: "GPT-4o", provider: "openai", logo: "/openai.png" },
+  { id: "claude-haiku-4.5", name: "Claude Haiku 4.5", provider: "anthropic", logo: "/Anthropic.svg" },
+  { id: "claude-sonnet-4.5", name: "Claude Sonnet 4.5", provider: "anthropic", logo: "/Anthropic.svg" },
+  { id: "claude-opus-4.5", name: "Claude Opus 4.5", provider: "anthropic", logo: "/Anthropic.svg" },
+  { id: "gemini-3-pro", name: "Gemini 3 Pro", provider: "google", logo: "/gemini.png" },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "google", logo: "/gemini.png" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "google", logo: "/gemini.png" },
 ];
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -1118,19 +1118,11 @@ export default function WorkspaceChatPage() {
                                         : "hover:bg-gray-100"
                                     }`}
                                   >
-                                    <span
-                                      className={`text-base ${
-                                        model.provider === "anthropic"
-                                          ? "text-orange-500"
-                                          : model.provider === "openai"
-                                          ? "text-gray-600"
-                                          : model.provider === "google"
-                                          ? "text-blue-500"
-                                          : "text-emerald-600"
-                                      }`}
-                                    >
-                                      {model.icon}
-                                    </span>
+                                    <img
+                                      src={model.logo}
+                                      alt={PROVIDER_LABELS[model.provider]}
+                                      className="h-4 w-4 object-contain"
+                                    />
                                     {model.name}
                                   </button>
                                 ))}
@@ -1438,7 +1430,11 @@ export default function WorkspaceChatPage() {
                     <Popover open={modelDropdownOpen} onOpenChange={setModelDropdownOpen}>
                       <PopoverTrigger asChild>
                         <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-md">
-                          <Sparkles className="h-4 w-4 text-emerald-600" />
+                          <img
+                            src={selectedModel.logo}
+                            alt={PROVIDER_LABELS[selectedModel.provider]}
+                            className="h-4 w-4 object-contain"
+                          />
                           {selectedModel.name}
                           {modelDropdownOpen ? (
                             <ChevronUp className="h-3.5 w-3.5" />
@@ -1480,19 +1476,11 @@ export default function WorkspaceChatPage() {
                                       : "hover:bg-gray-100"
                                   }`}
                                 >
-                                  <span
-                                    className={`text-base ${
-                                      model.provider === "anthropic"
-                                        ? "text-orange-500"
-                                        : model.provider === "openai"
-                                        ? "text-gray-600"
-                                        : model.provider === "google"
-                                        ? "text-blue-500"
-                                        : "text-emerald-600"
-                                    }`}
-                                  >
-                                    {model.icon}
-                                  </span>
+                                  <img
+                                    src={model.logo}
+                                    alt={PROVIDER_LABELS[model.provider]}
+                                    className="h-4 w-4 object-contain"
+                                  />
                                   {model.name}
                                 </button>
                               ))}

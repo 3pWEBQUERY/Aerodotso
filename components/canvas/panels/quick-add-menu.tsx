@@ -27,14 +27,21 @@ const QUICK_ADD_OPTIONS = [
 
 interface QuickAddMenuProps {
   centerPosition?: { x: number; y: number };
+  onAddImage?: (position: { x: number; y: number }) => void;
 }
 
-export function QuickAddMenu({ centerPosition }: QuickAddMenuProps) {
+export function QuickAddMenu({ centerPosition, onAddImage }: QuickAddMenuProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { addNode } = useCanvasStore();
 
   const handleAddNode = (type: string) => {
     const position = centerPosition || { x: 400 + Math.random() * 100, y: 300 + Math.random() * 100 };
+
+    if (type === "image" && onAddImage) {
+      onAddImage(position);
+      setIsExpanded(false);
+      return;
+    }
 
     const defaultData: Record<string, any> = {
       note: { content: "", backgroundColor: "yellow" },
@@ -123,7 +130,7 @@ export function QuickAddMenu({ centerPosition }: QuickAddMenuProps) {
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className={`
-          flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg border transition-all
+          flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border transition-all
           ${isExpanded 
             ? "bg-gray-100 text-gray-700 border-gray-200" 
             : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"

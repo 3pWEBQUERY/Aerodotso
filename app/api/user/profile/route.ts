@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 import { randomUUID } from "node:crypto";
 
 // Get user profile
@@ -81,35 +82,31 @@ export async function POST(req: NextRequest) {
 
   // Generate unique filename
   const ext = file.name.split(".").pop() || "jpg";
-  const storagePath = `${userId}/${randomUUID()}.${ext}`;
+  const storagePath = `profileimage/${userId}/${randomUUID()}.${ext}`;
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Upload to profileimage bucket
-  const { data: uploadData, error: uploadError } = await supabase.storage
-    .from("profileimage")
-    .upload(storagePath, buffer, {
-      contentType: file.type,
-      upsert: true,
-    });
+  // Upload to Railway Storage Bucket
+  const storage = getRailwayStorage();
+  const { error: uploadError } = await storage.upload(storagePath, buffer, {
+    contentType: file.type,
+  });
 
   if (uploadError) {
     console.error("Error uploading image:", uploadError);
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  // Get signed URL (works for private buckets too) - valid for 1 year
-  const { data: urlData, error: urlError } = await supabase.storage
-    .from("profileimage")
-    .createSignedUrl(storagePath, 60 * 60 * 24 * 365);
+  // Get signed URL - valid for 1 year
+  const { signedUrl, error: urlError } = await storage.createSignedUrl(storagePath, 60 * 60 * 24 * 365);
 
-  if (urlError || !urlData?.signedUrl) {
+  if (urlError || !signedUrl) {
     console.error("Error creating signed URL:", urlError);
     return NextResponse.json({ error: "Failed to create URL" }, { status: 500 });
   }
 
-  const avatarUrl = urlData.signedUrl;
+  const avatarUrl = signedUrl;
 
   // Update user record
   const { data: userData, error: updateError } = await supabase

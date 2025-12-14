@@ -48,9 +48,10 @@ interface Command {
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
+  onAddImage?: (position: { x: number; y: number }) => void;
 }
 
-export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
+export function CommandPalette({ isOpen, onClose, onAddImage }: CommandPaletteProps) {
   const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +94,16 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     onClose();
   };
 
+  const addImageAtCenter = () => {
+    const position = { x: 400 + Math.random() * 100, y: 300 + Math.random() * 100 };
+    if (onAddImage) {
+      onAddImage(position);
+      onClose();
+      return;
+    }
+    addNodeAtCenter("image", { url: "", width: 0, height: 0 });
+  };
+
   // Apply layout
   const applyLayout = (style: LayoutStyle) => {
     const { loadCanvas } = useCanvasStore.getState();
@@ -115,6 +126,14 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       icon: StickyNote,
       category: "add",
       action: () => addNodeAtCenter("note", { content: "", backgroundColor: "yellow" }),
+    },
+    {
+      id: "add-image",
+      label: "Add Image",
+      description: "Add an image from workspace media",
+      icon: ImageIcon,
+      category: "add",
+      action: () => addImageAtCenter(),
     },
     {
       id: "add-ai-chat",

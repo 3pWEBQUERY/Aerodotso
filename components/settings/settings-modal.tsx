@@ -21,6 +21,12 @@ import {
   Camera,
   Pencil,
   Info,
+  Upload,
+  FolderPlus,
+  FolderMinus,
+  FileX,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 import {
   Tooltip,
@@ -75,6 +81,17 @@ interface Invitation {
   expires_at: string;
 }
 
+interface Notification {
+  id: string;
+  title: string;
+  message: string | null;
+  type: "info" | "success" | "warning" | "error";
+  is_read: boolean;
+  action_type: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModalProps) {
   const { data: session, update: updateSession } = useSession();
   const [activeTab, setActiveTab] = useState<SettingsTab>("workspace");
@@ -111,6 +128,10 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
   // File input refs
   const userAvatarInputRef = useRef<HTMLInputElement>(null);
   const workspaceAvatarInputRef = useRef<HTMLInputElement>(null);
+  
+  // Notifications state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   // Fetch user profile from database
   const fetchUserProfile = useCallback(async () => {
@@ -180,14 +201,63 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
     }
   }, [workspaceId]);
 
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    if (!workspaceId) return;
+    
+    setIsLoadingNotifications(true);
+    try {
+      const res = await fetch(`/api/notifications?workspaceId=${workspaceId}&showAll=true&limit=50`);
+      const data = await res.json();
+      if (data.notifications) {
+        setNotifications(data.notifications);
+      }
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, [workspaceId]);
+
+  // Mark notification as read
+  const markNotificationRead = async (notificationId: string) => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId }),
+      });
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+      );
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllNotificationsRead = async () => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAllRead: true }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
+  };
+
   useEffect(() => {
     if (open) {
       fetchWorkspaceData();
       fetchUserProfile();
       fetchMembers();
       fetchInvitations();
+      fetchNotifications();
     }
-  }, [open, fetchWorkspaceData, fetchUserProfile, fetchMembers, fetchInvitations]);
+  }, [open, fetchWorkspaceData, fetchUserProfile, fetchMembers, fetchInvitations, fetchNotifications]);
 
   // Invite member
   const handleInvite = async () => {
@@ -873,8 +943,112 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
 
             {activeTab === "notifications" && (
               <div className="space-y-6">
-                <h2 className="text-xl font-semibold">Notifications</h2>
-                <p className="text-muted-foreground">Configure your notification preferences.</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold">Activity</h2>
+                    <p className="text-muted-foreground text-sm">All activities in this workspace</p>
+                  </div>
+                  {notifications.some((n) => !n.is_read) && (
+                    <button
+                      type="button"
+                      onClick={markAllNotificationsRead}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 rounded-md"
+                    >
+                      <CheckCheck className="h-4 w-4" />
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+
+                {isLoadingNotifications ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Bell className="h-12 w-12 text-gray-300 mb-4" />
+                    <p className="text-muted-foreground">No activities yet</p>
+                    <p className="text-sm text-muted-foreground">Activities like uploads and folder changes will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {notifications.map((notification) => {
+                      const getIcon = () => {
+                        switch (notification.action_type) {
+                          case "upload":
+                            return <Upload className="h-4 w-4 text-emerald-600" />;
+                          case "folder_create":
+                            return <FolderPlus className="h-4 w-4 text-blue-600" />;
+                          case "folder_delete":
+                            return <FolderMinus className="h-4 w-4 text-red-500" />;
+                          case "folder_rename":
+                            return <Pencil className="h-4 w-4 text-orange-500" />;
+                          case "document_delete":
+                            return <FileX className="h-4 w-4 text-red-500" />;
+                          default:
+                            return <Info className="h-4 w-4 text-gray-500" />;
+                        }
+                      };
+
+                      const formatTime = (dateStr: string) => {
+                        const date = new Date(dateStr);
+                        const now = new Date();
+                        const diff = now.getTime() - date.getTime();
+                        const minutes = Math.floor(diff / 60000);
+                        const hours = Math.floor(diff / 3600000);
+                        const days = Math.floor(diff / 86400000);
+
+                        if (minutes < 1) return "Just now";
+                        if (minutes < 60) return `${minutes}m ago`;
+                        if (hours < 24) return `${hours}h ago`;
+                        if (days < 7) return `${days}d ago`;
+                        return date.toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+                      };
+
+                      return (
+                        <div
+                          key={notification.id}
+                          className={cn(
+                            "flex items-start gap-3 p-3 rounded-lg border transition-colors",
+                            notification.is_read
+                              ? "bg-white border-gray-100"
+                              : "bg-emerald-50/50 border-emerald-100"
+                          )}
+                        >
+                          <div className="flex-shrink-0 mt-0.5">
+                            {getIcon()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm">{notification.title}</p>
+                              {!notification.is_read && (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                              )}
+                            </div>
+                            {notification.message && (
+                              <p className="text-sm text-muted-foreground truncate">
+                                {notification.message}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatTime(notification.created_at)}
+                            </p>
+                          </div>
+                          {!notification.is_read && (
+                            <button
+                              type="button"
+                              onClick={() => markNotificationRead(notification.id)}
+                              className="flex-shrink-0 p-1 hover:bg-gray-100 rounded"
+                              title="Mark as read"
+                            >
+                              <Check className="h-4 w-4 text-gray-400" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

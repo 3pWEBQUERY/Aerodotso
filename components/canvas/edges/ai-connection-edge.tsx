@@ -103,7 +103,7 @@ function AIConnectionEdge({
           {/* Connection type badge */}
           <div
             className={`
-              flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium
+              flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-medium
               transition-all duration-200 cursor-pointer group
               ${selected ? "scale-110" : "hover:scale-105"}
             `}
@@ -120,7 +120,7 @@ function AIConnectionEdge({
             <button
               type="button"
               onClick={handleDelete}
-              className="opacity-0 group-hover:opacity-100 -mr-1 p-0.5 rounded-full hover:bg-red-100 transition-all"
+              className="opacity-0 group-hover:opacity-100 -mr-1 p-0.5 rounded-xl hover:bg-red-100 transition-all"
               title="Remove connection"
             >
               <X className="h-2.5 w-2.5 text-red-500" />

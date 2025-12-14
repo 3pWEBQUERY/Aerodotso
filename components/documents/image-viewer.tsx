@@ -598,7 +598,7 @@ export function ImageDocumentViewer({
                       type="button"
                       onClick={() => setDrawColor(c.color)}
                       className={cn(
-                        "h-5 w-5 rounded-full border-2 border-transparent transition-colors",
+                        "h-5 w-5 rounded-xl border-2 border-transparent transition-colors",
                         drawColor === c.color && "border-white"
                       )}
                       style={{ backgroundColor: c.color }}
@@ -621,7 +621,7 @@ export function ImageDocumentViewer({
                     >
                       <span
                         className={cn(
-                          "block rounded-full",
+                          "block rounded-xl",
                           size === 2 && "h-1 w-1",
                           size === 4 && "h-1.5 w-1.5",
                           size === 6 && "h-2 w-2"

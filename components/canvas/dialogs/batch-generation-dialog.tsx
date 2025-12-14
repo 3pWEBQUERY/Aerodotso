@@ -182,7 +182,7 @@ export function BatchGenerationDialog({
                   {results.length}/{promptList.length}
                 </span>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 bg-gray-100 rounded-xl overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 transition-all duration-300"
                   style={{ width: `${progress}%` }}

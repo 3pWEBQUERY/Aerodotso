@@ -1,5 +1,6 @@
- import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { PdfViewer } from "@/components/documents/pdf-viewer";
 import { ImageDocumentViewer } from "@/components/documents/image-viewer";
@@ -23,11 +24,11 @@ export default async function DocumentPage(props: DocumentPageProps) {
     notFound();
   }
 
-  const { data: signed, error: signedError } = await supabase.storage
-    .from("documents")
-    .createSignedUrl(doc.storage_path, 60 * 60);
+  // Get signed URL from Railway Storage
+  const storage = getRailwayStorage();
+  const { signedUrl: signed, error: signedError } = await storage.createSignedUrl(doc.storage_path, 60 * 60);
 
-  if (signedError || !signed?.signedUrl) {
+  if (signedError || !signed) {
     notFound();
   }
 
@@ -47,13 +48,11 @@ export default async function DocumentPage(props: DocumentPageProps) {
     if (!versionsError && versionRows && versionRows.length > 0) {
       const withUrls = await Promise.all(
         versionRows.map(async (v: any) => {
-          const { data: signedVersion } = await supabase.storage
-            .from("documents")
-            .createSignedUrl(v.storage_path, 60 * 60);
+          const { signedUrl: signedVersion } = await storage.createSignedUrl(v.storage_path, 60 * 60);
 
           return {
             id: v.id as string,
-            url: signedVersion?.signedUrl ?? "",
+            url: signedVersion ?? "",
             createdAt: v.created_at as string | null,
             mimeType: v.mime_type as string | null,
             isOriginal: false,
@@ -70,7 +69,7 @@ export default async function DocumentPage(props: DocumentPageProps) {
       <ImageDocumentViewer
         id={doc.id as string}
         title={doc.title as string}
-        url={signed.signedUrl}
+        url={signed}
         mimeType={mime}
         createdAt={doc.created_at as string | null}
         versions={versions}
@@ -92,14 +91,14 @@ export default async function DocumentPage(props: DocumentPageProps) {
       <div className="flex-1 grid gap-4 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)]">
         <div className="border rounded-lg overflow-hidden bg-background">
           {isPdf ? (
-            <PdfViewer url={signed.signedUrl} />
+            <PdfViewer url={signed} />
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground p-4">
               <p>
                 Für diesen Dateityp ist noch kein spezieller Viewer implementiert.
                 Du kannst die Datei direkt
                 <a
-                  href={signed.signedUrl}
+                  href={signed}
                   target="_blank"
                   rel="noreferrer"
                   className="underline ml-1"

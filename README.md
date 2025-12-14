@@ -29,6 +29,21 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Railway Storage Bucket Configuration
+
+This project uses **Railway Storage Buckets** for file storage (S3-compatible). Set the following environment variables:
+
+```bash
+# Railway Storage Bucket (required for file uploads)
+S3_BUCKET=your-bucket-name          # or BUCKET
+S3_ACCESS_KEY_ID=your-access-key    # or ACCESS_KEY_ID  
+S3_SECRET_ACCESS_KEY=your-secret    # or SECRET_ACCESS_KEY
+S3_ENDPOINT=https://storage.railway.app
+S3_REGION=auto
+```
+
+Get these credentials from your Railway bucket's **Credentials** tab after creating a bucket in your Railway project.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

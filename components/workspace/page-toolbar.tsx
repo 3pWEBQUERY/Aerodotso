@@ -23,6 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ViewModeSwitch } from "@/components/workspace/view-mode-switch";
 
 export type PageType = "media" | "links" | "notes" | "canvas";
 export type ViewMode = "grid" | "list" | "compact";
@@ -240,35 +241,7 @@ export function PageToolbar({
 
         {/* View Mode & Actions */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center border rounded-lg overflow-hidden">
-            <button
-              type="button"
-              onClick={() => onViewModeChange("grid")}
-              className={`p-1.5 ${
-                viewMode === "grid" ? "bg-muted" : "hover:bg-muted/50"
-              }`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange("list")}
-              className={`p-1.5 ${
-                viewMode === "list" ? "bg-muted" : "hover:bg-muted/50"
-              }`}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange("compact")}
-              className={`p-1.5 ${
-                viewMode === "compact" ? "bg-muted" : "hover:bg-muted/50"
-              }`}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
+          <ViewModeSwitch value={viewMode} onChange={onViewModeChange} />
 
           {/* Folder Creation */}
           <Popover open={folderPopoverOpen} onOpenChange={setFolderPopoverOpen}>

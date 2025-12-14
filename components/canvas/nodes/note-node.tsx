@@ -131,7 +131,7 @@ function NoteNode({ id, data, selected }: NodeProps<NoteNodeData>) {
                         e.stopPropagation();
                         handleColorChange(color.bg);
                       }}
-                      className={`w-5 h-5 rounded-full ${color.bg} ${color.border} border hover:scale-110 transition-transform`}
+                      className={`w-5 h-5 rounded-xl ${color.bg} ${color.border} border hover:scale-110 transition-transform`}
                       title={color.name}
                     />
                   ))}

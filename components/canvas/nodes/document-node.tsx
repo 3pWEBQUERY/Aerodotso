@@ -87,7 +87,7 @@ function DocumentNode({ id, data, selected }: NodeProps<DocumentNodeData>) {
         {/* AI Summary badge */}
         {data.summary && (
           <div className="absolute top-2 left-2">
-            <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-500/90 text-white text-[10px] rounded-full">
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-500/90 text-white text-[10px] rounded-xl">
               <Sparkles className="h-2.5 w-2.5" />
               <span>Summarized</span>
             </div>

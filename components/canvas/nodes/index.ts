@@ -9,6 +9,7 @@ export { default as UrlNode } from "./url-node";
 export { default as AIChatNode } from "./ai-chat-node";
 export { default as AIGeneratorNode } from "./ai-generator-node";
 export { default as GroupNode } from "./group-node";
+export { default as SocialPostNode } from "./social-post-node";
 
 // Node types mapping for React Flow
 import ImageNode from "./image-node";
@@ -19,6 +20,7 @@ import UrlNode from "./url-node";
 import AIChatNode from "./ai-chat-node";
 import AIGeneratorNode from "./ai-generator-node";
 import GroupNode from "./group-node";
+import SocialPostNode from "./social-post-node";
 
 export const nodeTypes = {
   image: ImageNode,
@@ -29,4 +31,5 @@ export const nodeTypes = {
   "ai-chat": AIChatNode,
   "ai-generator": AIGeneratorNode,
   group: GroupNode,
+  "social-post": SocialPostNode,
 };

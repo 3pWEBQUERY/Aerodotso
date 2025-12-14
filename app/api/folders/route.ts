@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createNotification } from "@/lib/notifications";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // GET: List folders for a workspace
 export async function GET(req: NextRequest) {
@@ -77,6 +80,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Create notification for folder creation
+    const session = await getServerSession(authOptions);
+    if (session?.user && workspaceId) {
+      const userId = (session.user as any).id;
+      await createNotification({
+        userId,
+        workspaceId,
+        title: "Folder created",
+        message: name,
+        type: "success",
+        actionType: "folder_create",
+        metadata: { folderName: name, folderId: data.id, folderType: type || "documents" },
+      });
+    }
+
     return NextResponse.json({ folder: data }, { status: 201 });
   } catch (error) {
     console.error("Create folder error", error);
@@ -96,6 +114,13 @@ export async function DELETE(req: NextRequest) {
 
     const supabase = createSupabaseServerClient();
 
+    // Get folder details before deleting for notification
+    const { data: folder } = await supabase
+      .from("folders")
+      .select("name, workspace_id")
+      .eq("id", folderId)
+      .single();
+
     const { error } = await supabase
       .from("folders")
       .delete()
@@ -103,6 +128,21 @@ export async function DELETE(req: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Create notification for folder deletion
+    const session = await getServerSession(authOptions);
+    if (session?.user && folder?.workspace_id) {
+      const userId = (session.user as any).id;
+      await createNotification({
+        userId,
+        workspaceId: folder.workspace_id,
+        title: "Folder deleted",
+        message: folder.name,
+        type: "info",
+        actionType: "folder_delete",
+        metadata: { folderName: folder.name, folderId },
+      });
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
@@ -127,6 +167,13 @@ export async function PATCH(req: NextRequest) {
 
     const supabase = createSupabaseServerClient();
 
+    // Get old name for notification
+    const { data: oldFolder } = await supabase
+      .from("folders")
+      .select("name, workspace_id")
+      .eq("id", folderId)
+      .single();
+
     const { data, error } = await supabase
       .from("folders")
       .update({ name, updated_at: new Date().toISOString() })
@@ -136,6 +183,21 @@ export async function PATCH(req: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Create notification for folder rename
+    const session = await getServerSession(authOptions);
+    if (session?.user && oldFolder?.workspace_id && oldFolder.name !== name) {
+      const userId = (session.user as any).id;
+      await createNotification({
+        userId,
+        workspaceId: oldFolder.workspace_id,
+        title: "Folder renamed",
+        message: `${oldFolder.name} → ${name}`,
+        type: "info",
+        actionType: "folder_rename",
+        metadata: { oldName: oldFolder.name, newName: name, folderId },
+      });
     }
 
     return NextResponse.json({ folder: data }, { status: 200 });

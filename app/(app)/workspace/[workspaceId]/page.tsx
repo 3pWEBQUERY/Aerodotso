@@ -6,6 +6,7 @@ import { Home, Trash2, Pencil, FolderClosed, Grid3X3, Link2, FileText, ImageIcon
 import { AnimatedFolder } from "@/components/workspace/animated-folder";
 import { SelectionActionBar } from "@/components/workspace/selection-action-bar";
 import { MediaCard } from "@/components/workspace/media-card";
+import { VideoCard } from "@/components/workspace/video-card";
 import { NoteCard } from "@/components/workspace/note-card";
 import { LinkCard } from "@/components/workspace/link-card";
 import { CanvasCard } from "@/components/canvas/canvas-card";
@@ -525,6 +526,21 @@ export default function WorkspaceDetailPage() {
                           if (doc.mime_type?.startsWith("image/") && doc.previewUrl) {
                             return (
                               <MediaCard
+                                key={`doc-${doc.id}`}
+                                src={doc.previewUrl}
+                                alt={doc.title}
+                                title={doc.title}
+                                isSelected={selectedDocs.has(doc.id)}
+                                isStarred={doc.is_starred}
+                                onCheckboxClick={() => toggleDocSelection(doc.id)}
+                                href={`/workspace/${workspaceId}/document/${doc.id}`}
+                              />
+                            );
+                          }
+                          // Video with preview
+                          if (doc.mime_type?.startsWith("video/") && doc.previewUrl) {
+                            return (
+                              <VideoCard
                                 key={`doc-${doc.id}`}
                                 src={doc.previewUrl}
                                 alt={doc.title}

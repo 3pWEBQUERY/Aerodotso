@@ -210,7 +210,7 @@ function AIChatNode({ id, data, selected }: NodeProps<AIChatNodeData>) {
         {/* Actions */}
         <div className="flex items-center gap-1">
           {connectedNodes.length > 0 && (
-            <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded-full mr-1">
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded-xl mr-1">
               <Link2 className="h-2.5 w-2.5" />
               <span>{connectedNodes.length}</span>
             </div>
@@ -260,7 +260,7 @@ function AIChatNode({ id, data, selected }: NodeProps<AIChatNodeData>) {
           <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ height: 290 }}>
             {(!data.conversation || data.conversation.length === 0) ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center mb-3">
+                <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center mb-3">
                   <MessageSquare className="h-6 w-6 text-violet-400" />
                 </div>
                 <p className="text-sm text-gray-500 mb-1">Start a conversation</p>
@@ -276,7 +276,7 @@ function AIChatNode({ id, data, selected }: NodeProps<AIChatNodeData>) {
                     className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     {message.role === "assistant" && (
-                      <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                      <div className="w-6 h-6 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
                         <Bot className="h-3.5 w-3.5 text-violet-600" />
                       </div>
                     )}
@@ -290,7 +290,7 @@ function AIChatNode({ id, data, selected }: NodeProps<AIChatNodeData>) {
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     </div>
                     {message.role === "user" && (
-                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <div className="w-6 h-6 rounded-xl bg-gray-200 flex items-center justify-center flex-shrink-0">
                         <User className="h-3.5 w-3.5 text-gray-600" />
                       </div>
                     )}
@@ -298,7 +298,7 @@ function AIChatNode({ id, data, selected }: NodeProps<AIChatNodeData>) {
                 ))}
                 {isGenerating && (
                   <div className="flex gap-2 justify-start">
-                    <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                    <div className="w-6 h-6 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
                       <Bot className="h-3.5 w-3.5 text-violet-600" />
                     </div>
                     <div className="px-3 py-2 bg-gray-100 rounded-xl">

@@ -21,6 +21,8 @@ import { useCanvasStore } from "@/lib/canvas/store";
 import { CanvasNode, CanvasConnection, CanvasNodeData, ConnectionStyles } from "@/lib/canvas/types";
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./edges";
+import { useSocialUrlPaste } from "@/hooks/use-social-url-paste";
+import { AddMediaPopover } from "@/components/documents/add-media-popover";
 
 // Components
 import { CanvasNodePalette } from "./canvas-node-palette";
@@ -69,6 +71,9 @@ function SpatialCanvasFlow({
   const [showNodeSearch, setShowNodeSearch] = useState(false);
   const [showCanvasSettings, setShowCanvasSettings] = useState(false);
 
+  const [showAddImagePopover, setShowAddImagePopover] = useState(false);
+  const [pendingImagePosition, setPendingImagePosition] = useState<{ x: number; y: number } | null>(null);
+
   // Store
   const {
     nodes,
@@ -97,6 +102,9 @@ function SpatialCanvasFlow({
     showMinimap: storeSettings?.showMinimap ?? true,
     backgroundColor: storeSettings?.backgroundColor ?? '#f9fafb',
   };
+
+  // Social URL paste/drop handler
+  useSocialUrlPaste(reactFlowWrapper, { enabled: true });
 
   // Initialize canvas
   useEffect(() => {
@@ -170,6 +178,13 @@ function SpatialCanvasFlow({
         y: event.clientY,
       });
 
+      // For image nodes, open a picker first (select existing workspace media)
+      if (type === 'image') {
+        setPendingImagePosition(position);
+        setShowAddImagePopover(true);
+        return;
+      }
+
       let nodeData: Partial<CanvasNodeData> = {};
       if (nodeDataStr) {
         try {
@@ -177,6 +192,28 @@ function SpatialCanvasFlow({
         } catch (e) {
           console.error("Failed to parse node data:", e);
         }
+      }
+
+      // Set default properties based on node type
+      let typeSpecificData: Record<string, unknown> = {};
+      
+      if (type === 'social-post') {
+        typeSpecificData = {
+          url: '',
+          status: 'idle',
+          displayMode: 'full',
+          theme: 'dark',
+          showMetrics: true,
+        };
+      } else if (type === 'note') {
+        typeSpecificData = {
+          content: '',
+          backgroundColor: '#fef3c7',
+        };
+      } else if (type === 'url') {
+        typeSpecificData = {
+          url: '',
+        };
       }
 
       const newNode: CanvasNode = {
@@ -189,6 +226,7 @@ function SpatialCanvasFlow({
           createdAt: new Date(),
           updatedAt: new Date(),
           userId: "", // Will be set by API
+          ...typeSpecificData,
           ...nodeData,
         } as CanvasNodeData,
       };
@@ -196,6 +234,70 @@ function SpatialCanvasFlow({
       addNode(newNode);
     },
     [screenToFlowPosition, addNode]
+  );
+
+  const handleAddWorkspaceImagesToCanvas = useCallback(
+    (docs: Array<{ id: string; title: string; mime_type: string; previewUrl?: string; file_size?: number }>) => {
+      if (!pendingImagePosition) return;
+
+      docs.forEach((doc, index) => {
+        const url = doc.previewUrl || '';
+        const position = {
+          x: pendingImagePosition.x + index * 40,
+          y: pendingImagePosition.y + index * 40,
+        };
+
+        // Load dimensions so the node can match the image aspect ratio
+        const img = new Image();
+        img.onload = () => {
+          addNode({
+            id: `image-${Date.now()}-${index}`,
+            type: 'image',
+            position,
+            data: {
+              type: 'image',
+              label: doc.title || 'Image',
+              url,
+              thumbnail: url,
+              width: img.naturalWidth || img.width || 0,
+              height: img.naturalHeight || img.height || 0,
+              fileSize: doc.file_size || 0,
+              mimeType: doc.mime_type || 'image/*',
+              mediaLibraryId: doc.id,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              userId: '',
+            } as any,
+          });
+        };
+        img.onerror = () => {
+          addNode({
+            id: `image-${Date.now()}-${index}`,
+            type: 'image',
+            position,
+            data: {
+              type: 'image',
+              label: doc.title || 'Image',
+              url,
+              thumbnail: url,
+              width: 0,
+              height: 0,
+              fileSize: doc.file_size || 0,
+              mimeType: doc.mime_type || 'image/*',
+              mediaLibraryId: doc.id,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              userId: '',
+            } as any,
+          });
+        };
+        img.src = url;
+      });
+
+      setPendingImagePosition(null);
+      setShowAddImagePopover(false);
+    },
+    [addNode, pendingImagePosition]
   );
 
   const onPaneClick = useCallback(() => {
@@ -229,6 +331,20 @@ function SpatialCanvasFlow({
     },
     []
   );
+
+  const openImagePickerAtCanvasCenter = useCallback(() => {
+    const el = reactFlowWrapper.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const position = screenToFlowPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+
+    setPendingImagePosition(position);
+    setShowAddImagePopover(true);
+  }, [screenToFlowPosition]);
 
   const onNodeContextMenu: NodeMouseHandler = useCallback(
     (event, node) => {
@@ -408,9 +524,29 @@ function SpatialCanvasFlow({
 
         {/* Node Palette Panel */}
         <Panel position="top-left" className="!m-4">
-          <CanvasNodePalette />
+          <CanvasNodePalette
+            onAddNode={(type) => {
+              if (type === 'image') {
+                openImagePickerAtCanvasCenter();
+              }
+            }}
+          />
         </Panel>
       </ReactFlow>
+
+      {/* Add Image from Workspace Popover */}
+      <AddMediaPopover
+        workspaceId={workspaceId}
+        isOpen={showAddImagePopover}
+        onClose={() => {
+          setShowAddImagePopover(false);
+          setPendingImagePosition(null);
+        }}
+        onAddMedia={() => {
+          // no-op; handled via onAddDocuments
+        }}
+        onAddDocuments={handleAddWorkspaceImagesToCanvas}
+      />
 
       {/* Context Menu */}
       {contextMenu && (
@@ -432,6 +568,10 @@ function SpatialCanvasFlow({
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
+        onAddImage={(position) => {
+          setPendingImagePosition(position);
+          setShowAddImagePopover(true);
+        }}
       />
 
       {/* Toolbar Actions */}
@@ -443,7 +583,12 @@ function SpatialCanvasFlow({
       />
 
       {/* Quick Add Menu */}
-      <QuickAddMenu />
+      <QuickAddMenu
+        onAddImage={(position) => {
+          setPendingImagePosition(position);
+          setShowAddImagePopover(true);
+        }}
+      />
 
       {/* Drag & Drop Overlay */}
       <DropZoneOverlay />

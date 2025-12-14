@@ -9,6 +9,8 @@ import { AddMediaPopover } from "@/components/documents/add-media-popover";
 import { AIImagePanel } from "@/components/documents/ai-image-panel";
 import { ImageWithConnector } from "@/components/documents/image-with-connector";
 import { DraggableElement, ElementBounds } from "@/components/documents/draggable-element";
+import { DocumentFloatingToolbar } from "@/components/documents/document-floating-toolbar";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +44,9 @@ export default function DocumentViewPage() {
   
   // Toolbar state
   const [zoom, setZoom] = useState(100);
+
+  // Fullscreen preview dialog
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   
   // Add Media state
   const [showAddMediaPopover, setShowAddMediaPopover] = useState(false);
@@ -343,20 +348,36 @@ export default function DocumentViewPage() {
             style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
           >
             {/* Floating Top Toolbar */}
-            <div className="absolute top-4 right-4 flex items-center gap-1 bg-white border rounded-full shadow-sm px-2 py-1 z-10" style={{ transform: `scale(${100 / zoom})`, transformOrigin: "top right" }}>
-              <button className="p-2 hover:bg-muted rounded-full">
-                <Pencil className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button onClick={handleDownload} className="p-2 hover:bg-muted rounded-full">
-                <Download className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button 
-                onClick={() => document.previewUrl && window.open(document.previewUrl, "_blank")}
-                className="p-2 hover:bg-muted rounded-full"
+            <DocumentFloatingToolbar
+              zoom={zoom}
+              onDownload={handleDownload}
+              onOpenPreview={() => setIsPreviewOpen(true)}
+            />
+
+            <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+              <DialogContent
+                className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden bg-black border-none"
+                showCloseButton
               >
-                <Maximize2 className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
+                <DialogTitle className="sr-only">Media preview</DialogTitle>
+                <div className="w-full h-full flex items-center justify-center">
+                  {document.mime_type?.startsWith("image/") && document.previewUrl ? (
+                    <img
+                      src={document.previewUrl}
+                      alt={document.title}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : document.mime_type?.startsWith("video/") && document.previewUrl ? (
+                    <video
+                      src={document.previewUrl}
+                      controls
+                      playsInline
+                      className="w-full h-full object-contain"
+                    />
+                  ) : null}
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* n8n-style Canvas: Freely draggable elements with curved connection lines */}
             <div className="relative w-full h-full min-h-[900px] overflow-hidden">
@@ -474,6 +495,15 @@ export default function DocumentViewPage() {
                       onConnect={handleConnect}
                       onDisconnect={handleDisconnect}
                     />
+                  ) : document.mime_type?.startsWith("video/") && document.previewUrl ? (
+                    <video
+                      src={document.previewUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      onDoubleClick={() => setIsPreviewOpen(true)}
+                      className="w-full max-w-4xl rounded-lg border shadow-lg bg-black pointer-events-auto"
+                    />
                   ) : document.mime_type === "application/pdf" && document.previewUrl ? (
                     <iframe
                       src={`${document.previewUrl}#toolbar=1&navpanes=1&scrollbar=1`}
@@ -510,7 +540,7 @@ export default function DocumentViewPage() {
                   onBoundsChange={handleBoundsChange}
                 >
                   <div className="relative">
-                    {media.previewUrl && (
+                    {media.mime_type?.startsWith("image/") && media.previewUrl ? (
                       <ImageWithConnector
                         id={media.id}
                         src={media.previewUrl}
@@ -519,7 +549,15 @@ export default function DocumentViewPage() {
                         onConnect={handleConnect}
                         onDisconnect={handleDisconnect}
                       />
-                    )}
+                    ) : media.mime_type?.startsWith("video/") && media.previewUrl ? (
+                      <video
+                        src={media.previewUrl}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full max-w-4xl rounded-lg border shadow-lg bg-black pointer-events-auto"
+                      />
+                    ) : null}
                     {/* Media label */}
                     <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm border text-xs text-muted-foreground whitespace-nowrap">
                       {media.title}

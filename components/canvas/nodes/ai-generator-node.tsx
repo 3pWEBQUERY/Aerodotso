@@ -290,7 +290,7 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
         {/* Actions */}
         <div className="flex items-center gap-1">
           {connectedNodes.length > 0 && (
-            <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded-full mr-1">
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded-xl mr-1">
               <Link2 className="h-2.5 w-2.5" />
               <span>{connectedNodes.length} refs</span>
             </div>
@@ -435,7 +435,7 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
 
                   {/* Added indicator */}
                   {image.inCanvas && (
-                    <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
+                    <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-xl flex items-center justify-center">
                       <ImageIcon className="h-2.5 w-2.5 text-white" />
                     </div>
                   )}

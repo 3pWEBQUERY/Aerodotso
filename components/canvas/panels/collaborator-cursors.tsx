@@ -88,18 +88,18 @@ export function CollaboratorCursors({ currentUserId }: CollaboratorCursorsProps)
 
             {/* Name badge */}
             <div
-              className="absolute left-4 top-4 flex items-center gap-1.5 px-2 py-1 rounded-full text-white text-xs font-medium whitespace-nowrap shadow-lg"
+              className="absolute left-4 top-4 flex items-center gap-1.5 px-2 py-1 rounded-xl text-white text-xs font-medium whitespace-nowrap shadow-lg"
               style={{ backgroundColor: color }}
             >
               {collaborator.userAvatar ? (
                 <img
                   src={collaborator.userAvatar}
                   alt={collaborator.userName}
-                  className="w-4 h-4 rounded-full"
+                  className="w-4 h-4 rounded-xl"
                 />
               ) : (
                 <div
-                  className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
+                  className="w-4 h-4 rounded-xl flex items-center justify-center text-[8px] font-bold"
                   style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
                 >
                   {initials}
@@ -111,7 +111,7 @@ export function CollaboratorCursors({ currentUserId }: CollaboratorCursorsProps)
             {/* Selection highlight if user is selecting */}
             {collaborator.selectedNodeIds && collaborator.selectedNodeIds.length > 0 && (
               <div
-                className="absolute -top-1 -left-1 w-3 h-3 rounded-full animate-ping"
+                className="absolute -top-1 -left-1 w-3 h-3 rounded-xl animate-ping"
                 style={{ backgroundColor: color, opacity: 0.5 }}
               />
             )}
@@ -154,11 +154,11 @@ export function PresenceIndicator() {
                   <img
                     src={collaborator.userAvatar}
                     alt={collaborator.userName}
-                    className="w-8 h-8 rounded-full border-2 border-white"
+                    className="w-8 h-8 rounded-xl border-2 border-white"
                   />
                 ) : (
                   <div
-                    className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold"
+                    className="w-8 h-8 rounded-xl border-2 border-white flex items-center justify-center text-white text-xs font-bold"
                     style={{ backgroundColor: color }}
                   >
                     {initials}
@@ -166,7 +166,7 @@ export function PresenceIndicator() {
                 )}
                 {/* Online indicator */}
                 <div
-                  className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white"
+                  className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-xl border-2 border-white"
                   style={{ backgroundColor: "#22C55E" }}
                 />
               </div>

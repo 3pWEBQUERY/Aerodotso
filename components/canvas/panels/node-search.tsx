@@ -187,7 +187,7 @@ export function NodeSearch({ isOpen, onClose }: NodeSearchProps) {
           <button
             type="button"
             onClick={() => setTypeFilter(null)}
-            className={`px-2 py-1 text-xs rounded-full whitespace-nowrap transition-colors ${
+            className={`px-2 py-1 text-xs rounded-xl whitespace-nowrap transition-colors ${
               !typeFilter
                 ? "bg-gray-800 text-white"
                 : "bg-white text-gray-600 hover:bg-gray-100 border"
@@ -203,7 +203,7 @@ export function NodeSearch({ isOpen, onClose }: NodeSearchProps) {
                 key={type}
                 type="button"
                 onClick={() => setTypeFilter(isActive ? null : type)}
-                className={`flex items-center gap-1 px-2 py-1 text-xs rounded-full whitespace-nowrap transition-colors ${
+                className={`flex items-center gap-1 px-2 py-1 text-xs rounded-xl whitespace-nowrap transition-colors ${
                   isActive
                     ? "bg-gray-800 text-white"
                     : "bg-white text-gray-600 hover:bg-gray-100 border"

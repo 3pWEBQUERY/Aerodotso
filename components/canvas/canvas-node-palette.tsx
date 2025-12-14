@@ -13,6 +13,7 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
+  Share2,
 } from "lucide-react";
 
 const NODE_TYPES = [
@@ -23,6 +24,7 @@ const NODE_TYPES = [
       { type: "video", label: "Video", icon: Video, color: "text-red-500", bg: "bg-red-50" },
       { type: "document", label: "Document", icon: FileText, color: "text-orange-500", bg: "bg-orange-50" },
       { type: "url", label: "URL", icon: Link2, color: "text-indigo-500", bg: "bg-indigo-50" },
+      { type: "social-post", label: "Social Post", icon: Share2, color: "text-pink-500", bg: "bg-pink-50" },
     ],
   },
   {
@@ -41,7 +43,11 @@ const NODE_TYPES = [
   },
 ];
 
-export function CanvasNodePalette() {
+interface CanvasNodePaletteProps {
+  onAddNode?: (nodeType: string, label: string) => void;
+}
+
+export function CanvasNodePalette({ onAddNode }: CanvasNodePaletteProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["Media", "Content", "AI"]);
 
@@ -108,10 +114,12 @@ export function CanvasNodePalette() {
                   {category.items.map((item) => {
                     const Icon = item.icon;
                     return (
-                      <div
+                      <button
                         key={item.type}
+                        type="button"
                         draggable
                         onDragStart={(e) => onDragStart(e, item.type, item.label)}
+                        onClick={() => onAddNode?.(item.type, item.label)}
                         className={`
                           flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-grab
                           border border-transparent hover:border-gray-200
@@ -124,7 +132,7 @@ export function CanvasNodePalette() {
                         <span className="text-xs font-medium text-gray-700">
                           {item.label}
                         </span>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

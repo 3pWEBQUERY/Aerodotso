@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 import { generateQueryEmbedding } from "@/lib/visual-embeddings";
 
 // Helper: Format time as MM:SS
@@ -498,38 +499,36 @@ function deduplicateResults(results: any[]): any[] {
   return Array.from(seen.values()).sort((a, b) => b.similarity - a.similarity);
 }
 
-// Helper: Add signed preview URLs
+// Helper: Add signed preview URLs from Railway Storage
 async function addPreviewUrls(supabase: any, results: any[]): Promise<any[]> {
+  const storage = getRailwayStorage();
+  
   return Promise.all(
     results.map(async (result: any) => {
       let previewUrl: string | null = null;
       let thumbnailUrl: string | null = null;
 
-      // Generate preview URL for the main file
+      // Generate preview URL for the main file from Railway Storage
       if (result.storage_path) {
         const isImage = result.mime_type?.startsWith("image/");
         const isPdf = result.mime_type === "application/pdf";
         const isVideo = result.mime_type?.startsWith("video/");
         
         if (isImage || isPdf || isVideo) {
-          const { data: signed } = await supabase.storage
-            .from("documents")
-            .createSignedUrl(result.storage_path, 60 * 60);
+          const { signedUrl } = await storage.createSignedUrl(result.storage_path, 60 * 60);
           
-          if (signed?.signedUrl) {
-            previewUrl = signed.signedUrl;
+          if (signedUrl) {
+            previewUrl = signedUrl;
           }
         }
       }
 
       // Generate thumbnail URL if available
       if (result.thumbnail_path) {
-        const { data: thumbSigned } = await supabase.storage
-          .from("documents")
-          .createSignedUrl(result.thumbnail_path, 60 * 60);
+        const { signedUrl: thumbSignedUrl } = await storage.createSignedUrl(result.thumbnail_path, 60 * 60);
         
-        if (thumbSigned?.signedUrl) {
-          thumbnailUrl = thumbSigned.signedUrl;
+        if (thumbSignedUrl) {
+          thumbnailUrl = thumbSignedUrl;
         }
       }
 

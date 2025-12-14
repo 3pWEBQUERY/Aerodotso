@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 import ytdl from "@distube/ytdl-core";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Readable } from "stream";
@@ -93,22 +94,18 @@ export async function POST(
       audioBuffer = await streamToBuffer(audioStream);
       console.log(`Downloaded audio: ${(audioBuffer.length / 1024 / 1024).toFixed(2)} MB`);
       
-      // Upload audio to Supabase Storage
-      console.log("Step 2: Uploading to Supabase Storage...");
-      const audioFileName = `links/${linkId}/audio.webm`;
+      // Upload audio to Railway Storage Bucket
+      console.log("Step 2: Uploading to Railway Storage...");
+      const audioFileName = `media/links/${linkId}/audio.webm`;
       
-      const { error: uploadError } = await supabase.storage
-        .from("media")
-        .upload(audioFileName, audioBuffer, {
-          contentType: "audio/webm",
-          upsert: true,
-        });
+      const storage = getRailwayStorage();
+      const { error: uploadError } = await storage.upload(audioFileName, audioBuffer, {
+        contentType: "audio/webm",
+      });
 
       if (!uploadError) {
-        const { data: urlData } = supabase.storage
-          .from("media")
-          .getPublicUrl(audioFileName);
-        audioUrl = urlData.publicUrl;
+        const { signedUrl } = await storage.createSignedUrl(audioFileName, 60 * 60 * 24 * 365);
+        audioUrl = signedUrl;
         console.log(`Audio uploaded to: ${audioUrl}`);
       }
     } catch (downloadError) {
@@ -131,26 +128,22 @@ export async function POST(
       const videoBuffer = await streamToBuffer(videoStream);
       console.log(`Downloaded video: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
 
-      const videoFileName = `links/${linkId}/video.mp4`;
+      const videoFileName = `media/links/${linkId}/video.mp4`;
       
-      const { error: videoUploadError } = await supabase.storage
-        .from("media")
-        .upload(videoFileName, videoBuffer, {
-          contentType: "video/mp4",
-          upsert: true,
-        });
+      const storage = getRailwayStorage();
+      const { error: videoUploadError } = await storage.upload(videoFileName, videoBuffer, {
+        contentType: "video/mp4",
+      });
 
       if (!videoUploadError) {
-        const { data: videoUrlData } = supabase.storage
-          .from("media")
-          .getPublicUrl(videoFileName);
+        const { signedUrl: videoSignedUrl } = await storage.createSignedUrl(videoFileName, 60 * 60 * 24 * 365);
 
         await supabase
           .from("links")
-          .update({ video_url: videoUrlData.publicUrl })
+          .update({ video_url: videoSignedUrl })
           .eq("id", linkId);
 
-        console.log(`Video uploaded to: ${videoUrlData.publicUrl}`);
+        console.log(`Video uploaded to: ${videoSignedUrl}`);
       }
     } catch (videoDownloadError) {
       console.error("Video download failed:", videoDownloadError);

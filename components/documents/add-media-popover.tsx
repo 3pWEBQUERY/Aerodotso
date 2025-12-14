@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, ImageIcon, Check, Search } from "lucide-react";
 
+const EMPTY_IDS: string[] = [];
+
 interface MediaDocument {
   id: string;
   title: string;
@@ -15,6 +17,7 @@ interface AddMediaPopoverProps {
   isOpen: boolean;
   onClose: () => void;
   onAddMedia: (mediaIds: string[]) => void;
+  onAddDocuments?: (documents: MediaDocument[]) => void;
   excludeIds?: string[];
 }
 
@@ -23,7 +26,8 @@ export function AddMediaPopover({
   isOpen,
   onClose,
   onAddMedia,
-  excludeIds = [],
+  onAddDocuments,
+  excludeIds = EMPTY_IDS,
 }: AddMediaPopoverProps) {
   const [documents, setDocuments] = useState<MediaDocument[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -76,7 +80,12 @@ export function AddMediaPopover({
 
   const handleAdd = () => {
     if (selectedIds.size > 0) {
-      onAddMedia(Array.from(selectedIds));
+      const ids = Array.from(selectedIds);
+      onAddMedia(ids);
+      if (onAddDocuments) {
+        const selectedDocs = documents.filter((d) => selectedIds.has(d.id));
+        onAddDocuments(selectedDocs);
+      }
       onClose();
     }
   };
@@ -89,7 +98,7 @@ export function AddMediaPopover({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-xl w-[500px] max-h-[600px] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-xl shadow-xl w-[90vw] max-w-[900px] max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <h2 className="text-lg font-semibold">Add Media from Workspace</h2>
@@ -128,7 +137,7 @@ export function AddMediaPopover({
               <p className="text-muted-foreground text-sm">No media found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {filteredDocuments.map((doc) => (
                 <button
                   key={doc.id}
@@ -153,7 +162,7 @@ export function AddMediaPopover({
                   )}
                   {/* Selection indicator */}
                   {selectedIds.has(doc.id) && (
-                    <div className="absolute top-2 right-2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                    <div className="absolute top-2 right-2 w-6 h-6 bg-emerald-500 rounded-xl flex items-center justify-center">
                       <Check className="h-4 w-4 text-white" />
                     </div>
                   )}

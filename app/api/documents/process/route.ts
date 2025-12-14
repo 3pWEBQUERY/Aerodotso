@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 import { 
   generateAITags, 
   generateAISummary,
@@ -52,13 +53,12 @@ export async function POST(req: NextRequest) {
     let searchableText: string | null = null;
     let modelUsed: string | null = null;
 
-    // Generate signed URL for processing
+    // Generate signed URL for processing from Railway Storage
     let fileUrl: string | null = null;
     if (document.storage_path) {
-      const { data: signed } = await supabase.storage
-        .from("documents")
-        .createSignedUrl(document.storage_path, 60 * 60);
-      fileUrl = signed?.signedUrl || null;
+      const storage = getRailwayStorage();
+      const { signedUrl } = await storage.createSignedUrl(document.storage_path, 60 * 60);
+      fileUrl = signedUrl || null;
     }
 
     // Process based on file type

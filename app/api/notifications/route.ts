@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -11,15 +11,32 @@ export async function GET() {
   }
 
   const userId = (session.user as any).id;
+  const { searchParams } = new URL(request.url);
+  const workspaceId = searchParams.get("workspaceId");
+  const showAll = searchParams.get("showAll") === "true";
+  const limit = parseInt(searchParams.get("limit") || "50", 10);
+
   const supabase = createSupabaseServerClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("notifications")
-    .select("id, title, message, type, is_read, link, created_at")
-    .eq("user_id", userId)
-    .eq("is_read", false)
+    .select("id, title, message, type, is_read, link, action_type, metadata, created_at")
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(limit);
+
+  // Filter by workspace if provided
+  if (workspaceId) {
+    query = query.eq("workspace_id", workspaceId);
+  } else {
+    query = query.eq("user_id", userId);
+  }
+
+  // Only show unread by default
+  if (!showAll) {
+    query = query.eq("is_read", false);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Error fetching notifications:", error);

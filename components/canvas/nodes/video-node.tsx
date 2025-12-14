@@ -103,7 +103,7 @@ function VideoNode({ id, data, selected }: NodeProps<VideoNodeData>) {
                 <button
                   type="button"
                   onClick={togglePlay}
-                  className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
+                  className="w-12 h-12 rounded-xl bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
                 >
                   {isPlaying ? (
                     <Pause className="h-5 w-5 text-gray-800" />
@@ -146,7 +146,7 @@ function VideoNode({ id, data, selected }: NodeProps<VideoNodeData>) {
         {/* Transcription badge */}
         {data.transcription && (
           <div className="absolute top-2 left-2">
-            <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-500/90 text-white text-[10px] rounded-full">
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-500/90 text-white text-[10px] rounded-xl">
               <FileText className="h-2.5 w-2.5" />
               <span>Transcribed</span>
             </div>
@@ -156,7 +156,7 @@ function VideoNode({ id, data, selected }: NodeProps<VideoNodeData>) {
         {/* AI Tags Badge */}
         {data.aiTags && data.aiTags.length > 0 && (
           <div className="absolute top-2 right-2">
-            <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/90 text-white text-[10px] rounded-full">
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/90 text-white text-[10px] rounded-xl">
               <Sparkles className="h-2.5 w-2.5" />
               <span>AI Tagged</span>
             </div>

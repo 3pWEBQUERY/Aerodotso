@@ -107,7 +107,7 @@ function GroupNode({ id, data, selected }: NodeProps<GroupNodeData>) {
 
             {/* Item count */}
             {data.childNodeIds && data.childNodeIds.length > 0 && (
-              <span className="px-1.5 py-0.5 bg-gray-200 text-gray-500 text-[10px] rounded-full">
+              <span className="px-1.5 py-0.5 bg-gray-200 text-gray-500 text-[10px] rounded-xl">
                 {data.childNodeIds.length}
               </span>
             )}

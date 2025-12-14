@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRailwayStorage } from "@/lib/railway-storage";
 
 // Liefert Dokumente gefiltert nach Workspace
 
@@ -30,19 +31,24 @@ export async function GET(req: NextRequest) {
 
     const docs = data ?? [];
 
+    // Get Railway Storage for signed URLs
+    const storage = getRailwayStorage();
+    
     const withPreviews = await Promise.all(
       docs.map(async (doc: any) => {
         let previewUrl: string | null = null;
 
-        // Generate preview URL for images AND PDFs
-        if (typeof doc.mime_type === "string" && 
-            (doc.mime_type.startsWith("image/") || doc.mime_type === "application/pdf")) {
-          const { data: signed } = await supabase.storage
-            .from("documents")
-            .createSignedUrl(doc.storage_path, 60 * 60);
+        // Generate preview URL for images, videos AND PDFs from Railway Storage
+        if (
+          typeof doc.mime_type === "string" &&
+          (doc.mime_type.startsWith("image/") ||
+            doc.mime_type.startsWith("video/") ||
+            doc.mime_type === "application/pdf")
+        ) {
+          const { signedUrl } = await storage.createSignedUrl(doc.storage_path, 60 * 60);
 
-          if (signed?.signedUrl) {
-            previewUrl = signed.signedUrl;
+          if (signedUrl) {
+            previewUrl = signedUrl;
           }
         }
 

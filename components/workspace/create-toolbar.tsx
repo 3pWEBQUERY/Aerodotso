@@ -167,7 +167,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
           type="button"
           onClick={() => handleTogglePanel("note")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 text-sm border rounded-full transition-colors",
+            "flex items-center gap-2 px-4 py-2 text-sm border rounded-xl transition-colors",
             activePanel === "note"
               ? "bg-emerald-50 border-emerald-300 text-emerald-700"
               : "hover:bg-muted"
@@ -181,7 +181,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
           type="button"
           onClick={() => handleTogglePanel("canvas")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 text-sm border rounded-full transition-colors",
+            "flex items-center gap-2 px-4 py-2 text-sm border rounded-xl transition-colors",
             activePanel === "canvas"
               ? "bg-emerald-50 border-emerald-300 text-emerald-700"
               : "hover:bg-muted"
@@ -195,7 +195,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
           type="button"
           onClick={() => handleTogglePanel("link")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 text-sm border rounded-full transition-colors",
+            "flex items-center gap-2 px-4 py-2 text-sm border rounded-xl transition-colors",
             activePanel === "link"
               ? "bg-emerald-50 border-emerald-300 text-emerald-700"
               : "hover:bg-muted"
@@ -209,7 +209,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
           type="button"
           onClick={() => handleTogglePanel("upload")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 text-sm border rounded-full transition-colors",
+            "flex items-center gap-2 px-4 py-2 text-sm border rounded-xl transition-colors",
             activePanel === "upload"
               ? "bg-emerald-50 border-emerald-300 text-emerald-700"
               : "hover:bg-muted"

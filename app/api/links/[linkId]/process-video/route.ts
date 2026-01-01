@@ -3,26 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getRailwayStorage } from "@/lib/railway-storage";
-import youtubedl, { create as createYtDlp } from "youtube-dl-exec";
-import { execSync } from "child_process";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { readFile, unlink } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 
-// Try to use system yt-dlp first, fallback to bundled binary
-let ytdlpBinaryPath: string | undefined;
-try {
-  // Check if system yt-dlp is available
-  execSync("which yt-dlp", { stdio: "ignore" });
-  ytdlpBinaryPath = "yt-dlp";
-  console.log("Using system yt-dlp binary");
-} catch {
-  // Use bundled binary from youtube-dl-exec
-  console.log("Using bundled yt-dlp binary");
-}
-
-const ytdlp = ytdlpBinaryPath ? createYtDlp(ytdlpBinaryPath) : youtubedl;
+const execAsync = promisify(exec);
 
 // Gemini API Key
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -40,7 +28,7 @@ function extractYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// Download video/audio using yt-dlp
+// Download video/audio using system yt-dlp binary
 async function downloadWithYtDlp(
   videoId: string,
   outputPath: string,
@@ -48,26 +36,25 @@ async function downloadWithYtDlp(
 ): Promise<string> {
   const url = `https://www.youtube.com/watch?v=${videoId}`;
   
-  const options: any = {
-    output: outputPath,
-    noCheckCertificates: true,
-    noWarnings: true,
-    preferFreeFormats: true,
-    addHeader: [
-      "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language:de-DE,de;q=0.9,en;q=0.8",
-    ],
-  };
+  let command = `yt-dlp --no-check-certificates --no-warnings -o "${outputPath}"`;
+  
+  // Add headers
+  command += ` --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"`;
+  command += ` --add-header "Accept-Language:de-DE,de;q=0.9,en;q=0.8"`;
 
   if (format === "audio") {
-    options.extractAudio = true;
-    options.audioFormat = "mp3";
-    options.audioQuality = 0; // best quality
+    command += ` -x --audio-format mp3 --audio-quality 0`;
   } else {
-    options.format = "best[ext=mp4]/best";
+    command += ` -f "best[ext=mp4]/best"`;
   }
-
-  await ytdlp(url, options);
+  
+  command += ` "${url}"`;
+  
+  console.log("Running yt-dlp command:", command);
+  const { stdout, stderr } = await execAsync(command, { timeout: 300000 }); // 5 min timeout
+  if (stderr) console.log("yt-dlp stderr:", stderr);
+  if (stdout) console.log("yt-dlp stdout:", stdout);
+  
   return outputPath;
 }
 

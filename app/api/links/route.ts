@@ -145,6 +145,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ link: data });
 }
 
+// Internal API key for server-to-server calls
+const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY || "internal-processing-key";
+
 // Background video processing - calls the process-video endpoint
 async function processVideoInBackground(linkId: string) {
   console.log(`Starting background video processing for link ${linkId}...`);
@@ -153,11 +156,12 @@ async function processVideoInBackground(linkId: string) {
     // Get the base URL from environment or default to localhost
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
     
-    // Call the process-video endpoint internally
+    // Call the process-video endpoint internally with internal API key
     const response = await fetch(`${baseUrl}/api/links/${linkId}/process-video`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-internal-key": INTERNAL_API_KEY,
       },
     });
     

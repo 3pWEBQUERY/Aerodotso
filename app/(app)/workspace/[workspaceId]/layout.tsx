@@ -61,8 +61,8 @@ export default async function WorkspaceLayout({
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
-      <aside className="hidden md:flex flex-shrink-0">
+    <div className="h-screen flex bg-background text-foreground overflow-hidden">
+      <aside className="hidden md:flex flex-shrink-0 h-full">
         <SidebarNav workspaceId={workspaceId} />
       </aside>
       <WorkspacePanelLayout workspaceId={workspaceId}>

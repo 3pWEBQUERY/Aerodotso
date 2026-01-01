@@ -13,7 +13,10 @@ export interface UploadItem {
   status: "waiting" | "uploading" | "processing" | "done" | "error";
   error?: string;
   documentId?: string;
-  analysisStatus?: "pending" | "analyzing" | "done" | "error";
+  linkId?: string;
+  itemType?: "file" | "link";
+  analysisStatus?: "pending" | "analyzing" | "transcribing" | "downloading" | "done" | "error";
+  analysisMessage?: string;
 }
 
 interface UploadProgressProps {
@@ -187,28 +190,42 @@ export function UploadProgress({
                       {/* Analysis Status - shown after upload */}
                       {(upload.status === "processing" || upload.status === "done") && (
                         <>
-                          <span className="text-[var(--accent-primary-light)] flex items-center gap-1">
-                            <Check className="h-3 w-3" /> Uploaded
-                          </span>
-                          <span className="text-muted-foreground">·</span>
+                          {upload.itemType !== "link" && (
+                            <>
+                              <span className="text-[var(--accent-primary-light)] flex items-center gap-1">
+                                <Check className="h-3 w-3" /> Uploaded
+                              </span>
+                              <span className="text-muted-foreground">·</span>
+                            </>
+                          )}
                           {upload.analysisStatus === "pending" && (
                             <span className="flex items-center gap-1 text-gray-500">
                               <Sparkles className="h-3 w-3" /> Analysis pending
                             </span>
                           )}
+                          {upload.analysisStatus === "downloading" && (
+                            <span className="flex items-center gap-1 text-blue-600">
+                              <Loader2 className="h-3 w-3 animate-spin" /> {upload.analysisMessage || "Downloading..."}
+                            </span>
+                          )}
+                          {upload.analysisStatus === "transcribing" && (
+                            <span className="flex items-center gap-1 text-indigo-600">
+                              <Sparkles className="h-3 w-3 animate-pulse" /> {upload.analysisMessage || "Transcribing..."}
+                            </span>
+                          )}
                           {upload.analysisStatus === "analyzing" && (
                             <span className="flex items-center gap-1 text-purple-600">
-                              <Sparkles className="h-3 w-3 animate-pulse" /> Analyzing...
+                              <Sparkles className="h-3 w-3 animate-pulse" /> {upload.analysisMessage || "Analyzing..."}
                             </span>
                           )}
                           {upload.analysisStatus === "done" && (
                             <span className="flex items-center gap-1 text-[var(--accent-primary-light)]">
-                              <Sparkles className="h-3 w-3" /> Analyzed
+                              <Sparkles className="h-3 w-3" /> {upload.analysisMessage || "Analyzed"}
                             </span>
                           )}
                           {upload.analysisStatus === "error" && (
                             <span className="flex items-center gap-1 text-orange-500">
-                              <Sparkles className="h-3 w-3" /> Analysis failed
+                              <Sparkles className="h-3 w-3" /> {upload.analysisMessage || "Analysis failed"}
                             </span>
                           )}
                         </>

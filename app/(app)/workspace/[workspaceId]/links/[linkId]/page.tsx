@@ -7,7 +7,8 @@ import {
   Pencil, Trash2, Info, ChevronRight, Users, PanelRight, Check,
   Play, Pause, Volume2, VolumeX, Maximize, MessageSquare, Clock,
   Send, Loader2, Search, ChevronDown, PenTool, Eraser, Type,
-  Circle, Square, ArrowRight as Arrow, Download, Copy
+  Circle, Square, ArrowRight as Arrow, Download, Copy, Sparkles, Zap, Brain,
+  FileText, Tag, RefreshCw, Globe, Youtube
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -38,6 +39,15 @@ interface LinkItem {
   created_at: string;
   updated_at?: string;
   is_starred?: boolean;
+  // AI Analysis fields
+  ai_summary?: string;
+  ai_key_takeaways?: string[];
+  ai_topics?: { name: string; startTime: number; endTime: number; relevance: number }[];
+  ai_sentiment?: string;
+  ai_duration_seconds?: number;
+  ai_language?: string;
+  ai_analyzed_at?: string;
+  processing_status?: string;
 }
 
 interface Comment {
@@ -46,7 +56,10 @@ interface Comment {
   user_id: string;
   content: string;
   timestamp_seconds?: number;
-  frame_data?: string; // JSON string with drawing annotations
+  frame_data?: string;
+  drawing_data?: any;
+  is_resolved?: boolean;
+  parent_comment_id?: string;
   created_at: string;
   user?: {
     name: string;
@@ -61,6 +74,40 @@ interface TranscriptSegment {
   end_time: number;
   text: string;
   speaker?: string;
+  confidence?: number;
+  is_highlight?: boolean;
+  highlight_category?: string;
+}
+
+interface Chapter {
+  id: string;
+  link_id: string;
+  title: string;
+  start_time: number;
+  end_time?: number;
+  description?: string;
+  is_ai_generated: boolean;
+}
+
+interface Highlight {
+  id: string;
+  link_id: string;
+  start_time: number;
+  end_time?: number;
+  text: string;
+  category: "key_point" | "action_item" | "question" | "decision" | "important";
+  importance: number;
+  context?: string;
+}
+
+interface VisualTag {
+  id: string;
+  link_id: string;
+  tag: string;
+  category: string;
+  confidence?: number;
+  first_appearance: number;
+  appearances?: { start: number; end: number }[];
 }
 
 // Extract YouTube video ID
@@ -115,7 +162,16 @@ export default function LinkDetailPage() {
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptSearch, setTranscriptSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"comments" | "transcript">("comments");
+  const [activeTab, setActiveTab] = useState<"comments" | "transcript" | "summary">("transcript");
+  
+  // Video AI Analysis state
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [visualTags, setVisualTags] = useState<VisualTag[]>([]);
+  const [showHighlightsOnly, setShowHighlightsOnly] = useState(false);
+  const [highlightFilter, setHighlightFilter] = useState<string | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [activeChapter, setActiveChapter] = useState<Chapter | null>(null);
   
   // Text-to-Speech state (ElevenLabs)
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -125,6 +181,11 @@ export default function LinkDetailPage() {
   // Video processing state
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>("");
+  
+  // Gemini Analysis state
+  const [analysis, setAnalysis] = useState<any | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<"flash" | "pro">("flash");
   
   // Drawing state
   const [isDrawingMode, setIsDrawingMode] = useState(false);
@@ -188,11 +249,66 @@ export default function LinkDetailPage() {
     }
   }, [linkId]);
 
+  // Fetch chapters
+  const fetchChapters = useCallback(async () => {
+    if (!linkId) return;
+    try {
+      const response = await fetch(`/api/links/${linkId}/chapters`);
+      if (response.ok) {
+        const { chapters } = await response.json();
+        setChapters(chapters || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch chapters:", error);
+    }
+  }, [linkId]);
+
+  // Fetch highlights
+  const fetchHighlights = useCallback(async () => {
+    if (!linkId) return;
+    try {
+      const response = await fetch(`/api/links/${linkId}/highlights`);
+      if (response.ok) {
+        const { highlights } = await response.json();
+        setHighlights(highlights || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch highlights:", error);
+    }
+  }, [linkId]);
+
+  // Fetch visual tags
+  const fetchVisualTags = useCallback(async () => {
+    if (!linkId) return;
+    try {
+      const response = await fetch(`/api/links/${linkId}/visual-tags`);
+      if (response.ok) {
+        const { tags } = await response.json();
+        setVisualTags(tags || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch visual tags:", error);
+    }
+  }, [linkId]);
+
   useEffect(() => {
     fetchLink();
     fetchComments();
     fetchTranscript();
-  }, [fetchLink, fetchComments, fetchTranscript]);
+    fetchChapters();
+    fetchHighlights();
+    fetchVisualTags();
+  }, [fetchLink, fetchComments, fetchTranscript, fetchChapters, fetchHighlights, fetchVisualTags]);
+
+  // Update active chapter based on current time
+  useEffect(() => {
+    if (chapters.length > 0 && currentTime > 0) {
+      const current = chapters.find(
+        (c) => currentTime >= c.start_time && (!c.end_time || currentTime < c.end_time)
+      );
+      setActiveChapter(current || null);
+    }
+  }, [currentTime, chapters]);
 
   // Toggle starred
   const toggleStarred = async () => {
@@ -297,6 +413,33 @@ export default function LinkDetailPage() {
     }
   };
 
+  // Analyze link with Gemini
+  const analyzeLink = async () => {
+    if (!link?.url) return;
+    setIsAnalyzing(true);
+    setAnalysis(null);
+    try {
+      const response = await fetch("/api/links/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          url: link.url, 
+          title: link.title || link.url,
+          description: link.description,
+          model: selectedModel 
+        }),
+      });
+      const data = await response.json();
+      if (data.analysis) {
+        setAnalysis(data.analysis);
+      }
+    } catch (error) {
+      console.error("Failed to analyze link:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   // Process video - download, store, and transcribe with Gemini
   const processVideo = async () => {
     if (!linkId || !link?.url) return;
@@ -313,15 +456,14 @@ export default function LinkDetailPage() {
         const result = await response.json();
         setProcessingStatus("Fertig!");
         
-        // Refresh link data to get video_url
-        await fetchLink();
-        
-        // Update transcript
-        if (result.transcript) {
-          setTranscript(result.transcript);
-        } else {
-          await fetchTranscript();
-        }
+        // Refresh all data after processing
+        await Promise.all([
+          fetchLink(),
+          fetchTranscript(),
+          fetchChapters(),
+          fetchHighlights(),
+          fetchVisualTags(),
+        ]);
       } else {
         const error = await response.json();
         setProcessingStatus(`Fehler: ${error.error}`);
@@ -382,25 +524,47 @@ export default function LinkDetailPage() {
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
     
-    // Try to get a German voice
+    // Function to set voice and speak
+    const speakWithVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const germanVoice = voices.find(v => v.lang.startsWith("de")) || voices[0];
+      if (germanVoice) {
+        utterance.voice = germanVoice;
+      }
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setSpeakingSegmentId(null);
+      };
+
+      utterance.onerror = (e: SpeechSynthesisErrorEvent) => {
+        // Ignore 'interrupted' errors (happens when user clicks stop)
+        if (e.error !== "interrupted") {
+          console.error("Speech error:", e.error);
+        }
+        setIsSpeaking(false);
+        setSpeakingSegmentId(null);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    // Voices may not be loaded yet, wait for them
     const voices = window.speechSynthesis.getVoices();
-    const germanVoice = voices.find(v => v.lang.startsWith("de")) || voices[0];
-    if (germanVoice) {
-      utterance.voice = germanVoice;
+    if (voices.length > 0) {
+      speakWithVoice();
+    } else {
+      // Wait for voices to load
+      window.speechSynthesis.onvoiceschanged = () => {
+        speakWithVoice();
+      };
+      // Fallback: speak without specific voice after short delay
+      setTimeout(() => {
+        if (!window.speechSynthesis.speaking) {
+          speakWithVoice();
+        }
+      }, 100);
     }
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setSpeakingSegmentId(null);
-    };
-
-    utterance.onerror = (e) => {
-      console.error("Speech error:", e);
-      setIsSpeaking(false);
-      setSpeakingSegmentId(null);
-    };
-
-    window.speechSynthesis.speak(utterance);
   };
 
   // Speak entire transcript
@@ -601,16 +765,174 @@ export default function LinkDetailPage() {
         {/* Video/Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Video Player */}
-          <div className="relative bg-black flex items-center justify-center" style={{ height: "50%" }}>
-            {/* Show stored video if available */}
+          <div className="relative bg-black flex items-center justify-center group" style={{ height: "55%" }}>
+            {/* Show stored video if available - Custom Player */}
             {link?.video_url ? (
-              <video
-                ref={videoRef}
-                src={link.video_url}
-                className="w-full h-full"
-                controls
-                controlsList="nodownload"
-              />
+              <div className="relative w-full h-full">
+                <video
+                  ref={videoRef}
+                  src={link.video_url}
+                  className="w-full h-full"
+                  onClick={() => {
+                    if (videoRef.current) {
+                      if (isPlaying) videoRef.current.pause();
+                      else videoRef.current.play();
+                    }
+                  }}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onTimeUpdate={() => {
+                    if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
+                  }}
+                  onLoadedMetadata={() => {
+                    if (videoRef.current) setDuration(videoRef.current.duration);
+                  }}
+                />
+                
+                {/* Custom Video Controls */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Timeline with Chapters & Highlights */}
+                  <div className="relative mb-3">
+                    {/* Progress Bar */}
+                    <div 
+                      className="h-1.5 bg-white/30 rounded-full cursor-pointer relative"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const percent = (e.clientX - rect.left) / rect.width;
+                        if (videoRef.current) {
+                          videoRef.current.currentTime = percent * duration;
+                        }
+                      }}
+                    >
+                      {/* Chapter Markers */}
+                      {chapters.map((chapter) => (
+                        <div
+                          key={chapter.id}
+                          className="absolute top-1/2 -translate-y-1/2 w-1 h-3 bg-green-400 rounded-full"
+                          style={{ left: `${(chapter.start_time / duration) * 100}%` }}
+                          title={chapter.title}
+                        />
+                      ))}
+                      {/* Highlight Markers */}
+                      {highlights.map((highlight) => (
+                        <div
+                          key={highlight.id}
+                          className="absolute top-1/2 -translate-y-1/2 w-1.5 h-3 bg-yellow-400 rounded-full"
+                          style={{ left: `${(highlight.start_time / duration) * 100}%` }}
+                          title={highlight.text}
+                        />
+                      ))}
+                      {/* Comment Markers */}
+                      {comments.filter(c => c.timestamp_seconds).map((comment) => (
+                        <div
+                          key={comment.id}
+                          className="absolute top-1/2 -translate-y-1/2 w-1.5 h-3 bg-blue-400 rounded-full"
+                          style={{ left: `${((comment.timestamp_seconds || 0) / duration) * 100}%` }}
+                          title={comment.content}
+                        />
+                      ))}
+                      {/* Progress */}
+                      <div 
+                        className="absolute top-0 left-0 h-full bg-[var(--accent-primary)] rounded-full"
+                        style={{ width: `${(currentTime / duration) * 100}%` }}
+                      />
+                    </div>
+                    {/* Current Chapter Display */}
+                    {activeChapter && (
+                      <div className="absolute -top-6 left-0 text-xs text-white/80 bg-black/50 px-2 py-0.5 rounded">
+                        📍 {activeChapter.title}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Controls Row */}
+                  <div className="flex items-center gap-3">
+                    {/* Play/Pause */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (videoRef.current) {
+                          if (isPlaying) videoRef.current.pause();
+                          else videoRef.current.play();
+                        }
+                      }}
+                      className="text-white hover:text-[var(--accent-primary)] transition-colors"
+                    >
+                      {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
+                    </button>
+                    
+                    {/* Time Display */}
+                    <span className="text-white text-xs font-mono">
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+                    
+                    {/* Spacer */}
+                    <div className="flex-1" />
+                    
+                    {/* Playback Speed */}
+                    <select
+                      value={playbackSpeed}
+                      onChange={(e) => {
+                        const speed = parseFloat(e.target.value);
+                        setPlaybackSpeed(speed);
+                        if (videoRef.current) videoRef.current.playbackRate = speed;
+                      }}
+                      className="bg-white/20 text-white text-xs px-2 py-1 rounded border-none outline-none cursor-pointer"
+                    >
+                      <option value="0.5">0.5x</option>
+                      <option value="0.75">0.75x</option>
+                      <option value="1">1x</option>
+                      <option value="1.25">1.25x</option>
+                      <option value="1.5">1.5x</option>
+                      <option value="2">2x</option>
+                    </select>
+                    
+                    {/* Volume */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (videoRef.current) {
+                          videoRef.current.muted = !isMuted;
+                          setIsMuted(!isMuted);
+                        }
+                      }}
+                      className="text-white hover:text-[var(--accent-primary)] transition-colors"
+                    >
+                      {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                    </button>
+                    
+                    {/* Fullscreen */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (videoRef.current) {
+                          if (document.fullscreenElement) {
+                            document.exitFullscreen();
+                          } else {
+                            videoRef.current.requestFullscreen();
+                          }
+                        }
+                      }}
+                      className="text-white hover:text-[var(--accent-primary)] transition-colors"
+                    >
+                      <Maximize className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Play Button Overlay */}
+                {!isPlaying && (
+                  <button
+                    type="button"
+                    onClick={() => videoRef.current?.play()}
+                    className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                      <Play className="h-8 w-8 text-gray-800 ml-1" />
+                    </div>
+                  </button>
+                )}
+              </div>
             ) : isYouTube ? (
               <>
                 <iframe
@@ -619,25 +941,32 @@ export default function LinkDetailPage() {
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
-                {/* Process Video Button */}
-                <button
-                  type="button"
-                  onClick={processVideo}
-                  disabled={isProcessingVideo}
-                  className="absolute bottom-4 right-4 px-4 py-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-sm rounded-lg shadow-lg flex items-center gap-2 disabled:opacity-50"
-                >
-                  {isProcessingVideo ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {processingStatus || "Verarbeite..."}
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Video verarbeiten
-                    </>
+                {/* Process Video Button - Prominent */}
+                <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={processVideo}
+                    disabled={isProcessingVideo}
+                    className="px-5 py-2.5 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-sm font-medium rounded-xl shadow-lg flex items-center gap-2 disabled:opacity-50 transition-all hover:scale-105"
+                  >
+                    {isProcessingVideo ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {processingStatus || "Verarbeite..."}
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4" />
+                        Mit Gemini 3 Flash analysieren
+                      </>
+                    )}
+                  </button>
+                  {!isProcessingVideo && (
+                    <span className="text-xs text-white/70 bg-black/50 px-2 py-1 rounded">
+                      Video herunterladen, transkribieren & analysieren
+                    </span>
                   )}
-                </button>
+                </div>
               </>
             ) : link?.thumbnail_url ? (
               <div className="w-full h-full flex items-center justify-center">
@@ -722,56 +1051,372 @@ export default function LinkDetailPage() {
             </div>
           )}
 
-          {/* Link Info */}
-          <div className="p-4 border-b">
-            <h1 className="text-xl font-semibold text-gray-900 mb-1">{link?.title || "Untitled"}</h1>
-            {link?.description && (
-              <p className="text-sm text-muted-foreground mb-2">{link.description}</p>
+          {/* Link Info & Analysis Panel */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Link Header */}
+            <div className="p-6 border-b bg-gradient-to-br from-white to-gray-50/50">
+              <div className="flex items-start gap-4">
+                {link?.thumbnail_url && (
+                  <div className="flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-gray-100 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={link.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl font-semibold text-gray-900 mb-1 line-clamp-2">{link?.title || "Untitled"}</h1>
+                  {link?.description && (
+                    <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{link.description}</p>
+                  )}
+                  <a
+                    href={link?.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline break-all flex items-center gap-1.5"
+                  >
+                    <Globe className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate">{link?.url}</span>
+                    <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Video Processing Status - Only for YouTube */}
+            {isYouTube && (
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-red-100 to-orange-100">
+                      <Youtube className="h-4 w-4 text-red-600" />
+                    </div>
+                    <h2 className="text-sm font-semibold text-gray-800">Video-Verarbeitung</h2>
+                  </div>
+                  
+                  {/* Status Badge */}
+                  <div className="flex items-center gap-2">
+                    {link?.processing_status === "completed" && link?.video_url ? (
+                      <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full flex items-center gap-1">
+                        <Check className="h-3 w-3" />
+                        Heruntergeladen & Analysiert
+                      </span>
+                    ) : link?.processing_status === "processing" ? (
+                      <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Wird verarbeitet...
+                      </span>
+                    ) : link?.ai_summary && !link?.video_url ? (
+                      <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full flex items-center gap-1">
+                        <Sparkles className="h-3 w-3" />
+                        Analysiert (ohne Video)
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
+                        Nicht verarbeitet
+                      </span>
+                    )}
+                    
+                    {/* Re-Process Button */}
+                    <button
+                      type="button"
+                      onClick={processVideo}
+                      disabled={isProcessingVideo}
+                      className="px-3 py-1.5 text-xs bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white rounded-lg flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                    >
+                      {isProcessingVideo ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {processingStatus || "Verarbeite..."}
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3" />
+                          {link?.video_url ? "Erneut verarbeiten" : "Video verarbeiten"}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Info Cards */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className={`p-3 rounded-lg ${link?.video_url ? "bg-green-50" : "bg-gray-50"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Download className={`h-4 w-4 ${link?.video_url ? "text-green-600" : "text-gray-400"}`} />
+                      <span className="text-xs font-medium text-gray-700">Video</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {link?.video_url ? "Im Bucket gespeichert" : "Nicht heruntergeladen"}
+                    </p>
+                  </div>
+                  
+                  <div className={`p-3 rounded-lg ${transcript.length > 0 ? "bg-green-50" : "bg-gray-50"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText className={`h-4 w-4 ${transcript.length > 0 ? "text-green-600" : "text-gray-400"}`} />
+                      <span className="text-xs font-medium text-gray-700">Transkript</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {transcript.length > 0 ? `${transcript.length} Segmente` : "Nicht erstellt"}
+                    </p>
+                  </div>
+                  
+                  <div className={`p-3 rounded-lg ${link?.ai_summary ? "bg-green-50" : "bg-gray-50"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sparkles className={`h-4 w-4 ${link?.ai_summary ? "text-green-600" : "text-gray-400"}`} />
+                      <span className="text-xs font-medium text-gray-700">KI-Analyse</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {link?.ai_summary ? "Zusammenfassung erstellt" : "Nicht analysiert"}
+                    </p>
+                  </div>
+                </div>
+              </div>
             )}
-            <a
-              href={link?.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline break-all"
-            >
-              {link?.url}
-            </a>
           </div>
         </div>
 
-        {/* Sidebar - Comments & Transcript */}
-        <div className="w-96 border-l flex flex-col bg-gray-50">
+        {/* Sidebar - Summary, Transcript & Comments */}
+        <div className="w-[420px] border-l flex flex-col bg-gray-50">
           {/* Tabs */}
           <div className="flex border-b bg-white">
             <button
               type="button"
-              onClick={() => setActiveTab("comments")}
-              className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
-                activeTab === "comments"
+              onClick={() => setActiveTab("summary")}
+              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1.5 ${
+                activeTab === "summary"
                   ? "text-[var(--accent-primary-light)] border-b-2 border-[var(--accent-primary)]"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              <MessageSquare className="h-4 w-4" />
-              Comments ({comments.length})
+              <Sparkles className="h-3.5 w-3.5" />
+              Summary
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("transcript")}
-              className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
+              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1.5 ${
                 activeTab === "transcript"
                   ? "text-[var(--accent-primary-light)] border-b-2 border-[var(--accent-primary)]"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              <Clock className="h-4 w-4" />
+              <FileText className="h-3.5 w-3.5" />
               Transcript
+              {transcript.length > 0 && <span className="text-[10px] bg-gray-200 px-1.5 rounded-full">{transcript.length}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("comments")}
+              className={`flex-1 px-3 py-3 text-xs font-medium flex items-center justify-center gap-1.5 ${
+                activeTab === "comments"
+                  ? "text-[var(--accent-primary-light)] border-b-2 border-[var(--accent-primary)]"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Comments
+              {comments.length > 0 && <span className="text-[10px] bg-gray-200 px-1.5 rounded-full">{comments.length}</span>}
             </button>
           </div>
 
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto">
-            {activeTab === "comments" ? (
+            {/* Summary Tab */}
+            {activeTab === "summary" && (
+              <div className="p-4 space-y-4">
+                {/* AI Summary */}
+                {link?.ai_summary ? (
+                  <div className="bg-white rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1 rounded-md bg-purple-100">
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-700">KI-Zusammenfassung</span>
+                      {link.ai_language && (
+                        <span className="ml-auto text-[10px] uppercase bg-gray-100 px-1.5 py-0.5 rounded font-medium">
+                          {link.ai_language}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{link.ai_summary}</p>
+                    
+                    {/* Sentiment */}
+                    {link.ai_sentiment && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                          link.ai_sentiment === "positive" ? "bg-green-100 text-green-700" :
+                          link.ai_sentiment === "negative" ? "bg-red-100 text-red-700" :
+                          "bg-gray-100 text-gray-600"
+                        }`}>
+                          {link.ai_sentiment === "positive" ? "😊 Positiv" : 
+                           link.ai_sentiment === "negative" ? "😔 Negativ" : 
+                           "😐 Neutral"}
+                        </span>
+                        {link.ai_duration_seconds && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {Math.floor(link.ai_duration_seconds / 60)}:{String(Math.floor(link.ai_duration_seconds % 60)).padStart(2, '0')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+                    <Sparkles className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground mb-3">Noch keine KI-Analyse vorhanden</p>
+                    <button
+                      type="button"
+                      onClick={processVideo}
+                      disabled={isProcessingVideo}
+                      className="px-4 py-2 bg-[var(--accent-primary)] text-white text-sm rounded-lg hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 flex items-center gap-2 mx-auto"
+                    >
+                      {isProcessingVideo ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {processingStatus || "Verarbeite..."}
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4" />
+                          Mit Gemini 3 Flash analysieren
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Key Takeaways */}
+                {link?.ai_key_takeaways && link.ai_key_takeaways.length > 0 && (
+                  <div className="bg-white rounded-xl p-4 shadow-sm">
+                    <h3 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-blue-500" />
+                      Key Takeaways
+                    </h3>
+                    <ul className="space-y-2">
+                      {link.ai_key_takeaways.map((takeaway: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                          <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                            {i + 1}
+                          </span>
+                          {takeaway}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Chapters */}
+                {chapters.length > 0 && (
+                  <div className="bg-white rounded-xl p-4 shadow-sm">
+                    <h3 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 text-green-500" />
+                      Kapitel ({chapters.length})
+                    </h3>
+                    <div className="space-y-1">
+                      {chapters.map((chapter) => (
+                        <button
+                          key={chapter.id}
+                          type="button"
+                          onClick={() => jumpToTimestamp(chapter.start_time)}
+                          className={`w-full text-left p-2 rounded-lg hover:bg-gray-50 transition-colors ${
+                            activeChapter?.id === chapter.id ? "bg-[var(--accent-primary)]/10 ring-1 ring-[var(--accent-primary)]/30" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-blue-600 font-mono">{formatTime(chapter.start_time)}</span>
+                            <span className="text-sm font-medium text-gray-800">{chapter.title}</span>
+                          </div>
+                          {chapter.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 ml-12">{chapter.description}</p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Highlights */}
+                {highlights.length > 0 && (
+                  <div className="bg-white rounded-xl p-4 shadow-sm">
+                    <h3 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <Star className="h-3.5 w-3.5 text-yellow-500" />
+                      AI Highlights ({highlights.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {highlights.slice(0, 5).map((highlight) => (
+                        <button
+                          key={highlight.id}
+                          type="button"
+                          onClick={() => jumpToTimestamp(highlight.start_time)}
+                          className="w-full text-left p-2 rounded-lg hover:bg-gray-50 border-l-2 transition-colors"
+                          style={{
+                            borderLeftColor: 
+                              highlight.category === "key_point" ? "#8b5cf6" :
+                              highlight.category === "action_item" ? "#f59e0b" :
+                              highlight.category === "question" ? "#3b82f6" :
+                              highlight.category === "decision" ? "#10b981" :
+                              "#6b7280"
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-blue-600 font-mono">{formatTime(highlight.start_time)}</span>
+                            <span className={`px-1.5 py-0.5 text-[10px] rounded ${
+                              highlight.category === "key_point" ? "bg-purple-100 text-purple-700" :
+                              highlight.category === "action_item" ? "bg-amber-100 text-amber-700" :
+                              highlight.category === "question" ? "bg-blue-100 text-blue-700" :
+                              highlight.category === "decision" ? "bg-green-100 text-green-700" :
+                              "bg-gray-100 text-gray-700"
+                            }`}>
+                              {highlight.category === "key_point" ? "Key Point" :
+                               highlight.category === "action_item" ? "Action" :
+                               highlight.category === "question" ? "Frage" :
+                               highlight.category === "decision" ? "Entscheidung" :
+                               "Wichtig"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              ★ {highlight.importance}/10
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 mt-1">{highlight.text}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Visual Tags */}
+                {visualTags.length > 0 && (
+                  <div className="bg-white rounded-xl p-4 shadow-sm">
+                    <h3 className="text-xs font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <Tag className="h-3.5 w-3.5 text-indigo-500" />
+                      Erkannte Elemente ({visualTags.length})
+                    </h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {visualTags.map((tag) => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => jumpToTimestamp(tag.first_appearance)}
+                          className={`px-2 py-1 text-xs rounded-full border hover:bg-gray-50 ${
+                            tag.category === "person" ? "border-pink-200 bg-pink-50 text-pink-700" :
+                            tag.category === "object" ? "border-blue-200 bg-blue-50 text-blue-700" :
+                            tag.category === "scene" ? "border-green-200 bg-green-50 text-green-700" :
+                            tag.category === "action" ? "border-orange-200 bg-orange-50 text-orange-700" :
+                            tag.category === "emotion" ? "border-purple-200 bg-purple-50 text-purple-700" :
+                            "border-gray-200 bg-gray-50 text-gray-700"
+                          }`}
+                        >
+                          {tag.tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Comments Tab */}
+            {activeTab === "comments" && (
               <div className="p-4 space-y-4">
                 {comments.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
@@ -814,7 +1459,10 @@ export default function LinkDetailPage() {
                   ))
                 )}
               </div>
-            ) : (
+            )}
+
+            {/* Transcript Tab */}
+            {activeTab === "transcript" && (
               <div className="p-4">
                 {/* Transcript Search */}
                 <div className="relative mb-4">

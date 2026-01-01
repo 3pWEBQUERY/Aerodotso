@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { LayoutPanelLeft, Trash2, Pencil, Copy, Plus } from "lucide-react";
+import { LayoutPanelLeft, Trash2, Pencil, Copy, Plus, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -21,6 +21,11 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
   const [canvases, setCanvases] = useState<Canvas[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  
+  const toggleSection = (section: string) => {
+    setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const fetchCanvases = useCallback(async () => {
     if (!workspaceId) return;
@@ -250,41 +255,61 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
       </header>
 
       {/* Canvas List */}
-      <div className="flex-1 overflow-y-auto px-3 py-2">
+      <div className="flex-1 overflow-y-auto px-3 py-2 scrollbar-hide">
         {groupedCanvases.today.length > 0 && (
-          <>
-            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2">
-              Today
-            </p>
-            {renderCanvasList(groupedCanvases.today)}
-          </>
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={() => toggleSection('today')}
+              className="flex items-center gap-1 text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-1 hover:text-[var(--workspace-sidebar-foreground)] transition-colors w-full"
+            >
+              <ChevronRight className={`h-3 w-3 transition-transform ${collapsedSections.today ? '' : 'rotate-90'}`} />
+              <span>Today</span>
+            </button>
+            {!collapsedSections.today && renderCanvasList(groupedCanvases.today)}
+          </div>
         )}
 
         {groupedCanvases.yesterday.length > 0 && (
-          <>
-            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
-              Yesterday
-            </p>
-            {renderCanvasList(groupedCanvases.yesterday)}
-          </>
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={() => toggleSection('yesterday')}
+              className="flex items-center gap-1 text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-1 hover:text-[var(--workspace-sidebar-foreground)] transition-colors w-full"
+            >
+              <ChevronRight className={`h-3 w-3 transition-transform ${collapsedSections.yesterday ? '' : 'rotate-90'}`} />
+              <span>Yesterday</span>
+            </button>
+            {!collapsedSections.yesterday && renderCanvasList(groupedCanvases.yesterday)}
+          </div>
         )}
 
         {groupedCanvases.pastWeek.length > 0 && (
-          <>
-            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
-              Past Week
-            </p>
-            {renderCanvasList(groupedCanvases.pastWeek)}
-          </>
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={() => toggleSection('pastWeek')}
+              className="flex items-center gap-1 text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-1 hover:text-[var(--workspace-sidebar-foreground)] transition-colors w-full"
+            >
+              <ChevronRight className={`h-3 w-3 transition-transform ${collapsedSections.pastWeek ? '' : 'rotate-90'}`} />
+              <span>Past Week</span>
+            </button>
+            {!collapsedSections.pastWeek && renderCanvasList(groupedCanvases.pastWeek)}
+          </div>
         )}
 
         {groupedCanvases.older.length > 0 && (
-          <>
-            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
-              Older
-            </p>
-            {renderCanvasList(groupedCanvases.older)}
-          </>
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={() => toggleSection('older')}
+              className="flex items-center gap-1 text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-1 hover:text-[var(--workspace-sidebar-foreground)] transition-colors w-full"
+            >
+              <ChevronRight className={`h-3 w-3 transition-transform ${collapsedSections.older ? '' : 'rotate-90'}`} />
+              <span>Older</span>
+            </button>
+            {!collapsedSections.older && renderCanvasList(groupedCanvases.older)}
+          </div>
         )}
 
         {canvases.length === 0 && (

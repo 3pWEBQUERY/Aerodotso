@@ -155,7 +155,31 @@ async function generateWithGemini(
   // Format: candidates[0].content.parts[] - can contain text and/or inlineData
   const candidates = data.candidates;
   if (candidates && candidates.length > 0) {
-    const parts = candidates[0].content?.parts;
+    const candidate = candidates[0];
+    
+    // Check for IMAGE_OTHER or other failure reasons first
+    if (candidate.finishReason === "IMAGE_OTHER") {
+      console.log("Gemini IMAGE_OTHER - likely safety/policy restriction");
+      return NextResponse.json(
+        { 
+          error: "Bild konnte nicht generiert werden. Gemini kann keine Bilder von echten Personen erstellen oder bearbeiten. Versuche einen anderen Prompt ohne Personen/Gesichter.",
+          details: candidate.finishMessage || "Image generation blocked by safety policy"
+        },
+        { status: 400 }
+      );
+    }
+    
+    if (candidate.finishReason === "SAFETY") {
+      return NextResponse.json(
+        { 
+          error: "Inhalt wurde aus Sicherheitsgründen blockiert. Bitte versuche einen anderen Prompt.",
+          details: "Content blocked by safety filters"
+        },
+        { status: 400 }
+      );
+    }
+    
+    const parts = candidate.content?.parts;
     if (parts && parts.length > 0) {
       // Find the image part (inlineData)
       for (const part of parts) {

@@ -6,6 +6,7 @@ import { UploadProgress, UploadItem } from "@/components/workspace/upload-progre
 interface UploadContextType {
   uploads: UploadItem[];
   addUpload: (file: File, workspaceId: string) => Promise<any>;
+  addLinkProcessing: (linkId: string, linkTitle: string, linkUrl: string) => Promise<any>;
   cancelUpload: (id: string) => void;
   cancelAllUploads: () => void;
   clearCompleted: () => void;
@@ -183,6 +184,92 @@ export function UploadProvider({ children }: UploadProviderProps) {
     }
   }, [pollAnalysisStatus]);
 
+  // Poll for link video processing status
+  const pollLinkProcessingStatus = useCallback((uploadId: string, linkId: string) => {
+    const existingInterval = pollingRef.current.get(uploadId);
+    if (existingInterval) {
+      clearInterval(existingInterval);
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/links/${linkId}`);
+        if (response.ok) {
+          const data = await response.json();
+          const link = data.link;
+          
+          if (link.processing_status === "completed" || link.ai_analyzed_at) {
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === uploadId
+                  ? { ...u, status: "done" as const, progress: 100, analysisStatus: "done" as const, analysisMessage: "Analyse abgeschlossen" }
+                  : u
+              )
+            );
+            clearInterval(pollInterval);
+            pollingRef.current.delete(uploadId);
+          } else if (link.processing_status === "failed") {
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === uploadId
+                  ? { ...u, analysisStatus: "error" as const, analysisMessage: "Analyse fehlgeschlagen" }
+                  : u
+              )
+            );
+            clearInterval(pollInterval);
+            pollingRef.current.delete(uploadId);
+          } else if (link.processing_status === "processing") {
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === uploadId
+                  ? { ...u, analysisStatus: "analyzing" as const, analysisMessage: "KI-Analyse läuft..." }
+                  : u
+              )
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Failed to poll link processing status:", error);
+      }
+    }, 3000);
+
+    pollingRef.current.set(uploadId, pollInterval);
+
+    // Stop polling after 5 minutes (video processing can take longer)
+    setTimeout(() => {
+      const interval = pollingRef.current.get(uploadId);
+      if (interval) {
+        clearInterval(interval);
+        pollingRef.current.delete(uploadId);
+      }
+    }, 300000);
+  }, []);
+
+  // Add link for video processing status tracking (server already started processing)
+  const addLinkProcessing = useCallback(async (linkId: string, linkTitle: string, linkUrl: string) => {
+    const id = `link-${linkId}-${Date.now()}`;
+    
+    const newUpload: UploadItem = {
+      id,
+      fileName: linkTitle || linkUrl,
+      fileSize: 0,
+      progress: 10,
+      status: "processing",
+      itemType: "link",
+      linkId,
+      analysisStatus: "downloading",
+      analysisMessage: "Video wird verarbeitet...",
+    };
+    
+    setUploads((prev) => [...prev, newUpload]);
+    setShowProgress(true);
+
+    // Start polling for status (processing is already happening server-side)
+    pollLinkProcessingStatus(id, linkId);
+    
+    return { success: true };
+  }, [pollLinkProcessingStatus]);
+
   const cancelUpload = useCallback((id: string) => {
     setUploads((prev) => prev.filter((u) => u.id !== id));
   }, []);
@@ -206,6 +293,7 @@ export function UploadProvider({ children }: UploadProviderProps) {
       value={{
         uploads,
         addUpload,
+        addLinkProcessing,
         cancelUpload,
         cancelAllUploads,
         clearCompleted,

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Home, Pencil, Download, Maximize2, Star, FileText, ImageIcon, File, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, Home, Pencil, Download, Maximize2, Star, FileText, ImageIcon, ImagePlus, File, Sparkles, Trash2, X } from "lucide-react";
 import { ItemHeaderActions } from "@/components/shared/item-header-actions";
 import Link from "next/link";
 import { DocumentToolbar } from "@/components/documents/document-toolbar";
@@ -13,6 +13,7 @@ import { ResizableVideo } from "@/components/documents/resizable-video";
 import { DraggableElement, ElementBounds } from "@/components/documents/draggable-element";
 import { DocumentFloatingToolbar } from "@/components/documents/document-floating-toolbar";
 import { ResizablePdfViewer } from "@/components/documents/resizable-pdf-viewer";
+import { ResizableGeneratedImage } from "@/components/documents/resizable-generated-image";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -23,6 +24,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+// AI Icon component
+const AIIcon = ({ className }: { className?: string }) => (
+  <svg 
+    className={className}
+    viewBox="0 0 122.3 122.28" 
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <g>
+      <g>
+        <path d="M62.84,76.47c-2.1,0-3.79-1.7-3.79-3.79v-15.4c0-2.13-1.73-3.86-3.86-3.86s-3.86,1.73-3.86,3.86v15.4c0,2.1-1.7,3.79-3.79,3.79s-3.79-1.7-3.79-3.79v-15.4c0-6.31,5.14-11.45,11.45-11.45s11.45,5.14,11.45,11.45v15.4c0,2.1-1.7,3.79-3.79,3.79Z"/>
+        <path d="M62.84,68.09h-15.32c-2.1,0-3.79-1.7-3.79-3.79s1.7-3.79,3.79-3.79h15.32c2.1,0,3.79,1.7,3.79,3.79s-1.7,3.79-3.79,3.79Z"/>
+        <path d="M74.8,76.47c-2.1,0-3.79-1.7-3.79-3.79v-23.06c0-2.1,1.7-3.79,3.79-3.79s3.79,1.7,3.79,3.79v23.06c0,2.1-1.7,3.79-3.79,3.79Z"/>
+      </g>
+      <path d="M105.4,64.94c-1.25,0-2.48-.62-3.2-1.76-5.25-8.25-11.73-16.26-19.27-23.8C53.5,9.96,22.48,1.45,11.97,11.96c-6.46,6.47-5.74,19.93,1.95,36.02,.9,1.89,.1,4.16-1.79,5.06-1.89,.9-4.15,.1-5.06-1.79C-2.19,31.84-2.36,15.57,6.61,6.59c15.21-15.21,51.09-3.17,81.68,27.42,7.93,7.93,14.76,16.37,20.31,25.09,1.13,1.77,.6,4.11-1.16,5.24-.63,.4-1.34,.59-2.03,.59Z"/>
+      <path d="M97.83,122.25c-17.92,0-42.51-12.7-63.79-33.98-7.93-7.93-14.76-16.37-20.31-25.09-1.13-1.77-.6-4.11,1.16-5.24,1.77-1.13,4.12-.6,5.24,1.16,5.25,8.25,11.73,16.26,19.27,23.8,24.15,24.15,53.14,37,67.43,29.93,1.87-.93,4.15-.17,5.08,1.71,.93,1.88,.16,4.15-1.71,5.08-3.56,1.77-7.75,2.61-12.38,2.61Z"/>
+      <path d="M113.03,116.81c-.97,0-1.94-.37-2.68-1.11-1.48-1.48-1.48-3.88,0-5.37,1.22-1.21,2.19-2.69,2.9-4.38,.81-1.93,3.04-2.84,4.96-2.04,1.93,.81,2.84,3.03,2.04,4.96-1.09,2.61-2.62,4.91-4.54,6.82-.74,.74-1.71,1.11-2.68,1.11Z"/>
+      <path d="M116.75,111.21c-.49,0-.99-.1-1.46-.3-1.93-.81-2.84-3.03-2.03-4.96,3.05-7.27,1.28-18.81-4.85-31.64-.9-1.89-.1-4.16,1.79-5.06,1.89-.9,4.16-.1,5.06,1.79,7.16,15,8.94,28.44,5,37.84-.61,1.45-2.02,2.33-3.5,2.33Z"/>
+      <path d="M61.17,109.17c-1.25,0-2.48-.62-3.2-1.76-1.13-1.77-.6-4.11,1.16-5.24,8.25-5.25,16.26-11.73,23.8-19.27,29.42-29.42,37.93-60.44,27.42-70.95-6.28-6.28-19.33-5.75-34.9,1.42-1.91,.88-4.16,.04-5.03-1.86-.88-1.9-.05-4.16,1.86-5.03,18.85-8.69,34.69-8.65,43.44,.11,15.21,15.21,3.17,51.09-27.42,81.68-7.93,7.93-16.37,14.76-25.09,20.31-.63,.4-1.34,.59-2.03,.59Z"/>
+      <path d="M24.64,122.28c-7.46,0-13.65-2.2-18.03-6.58-15.21-15.21-3.17-51.09,27.42-81.68,7.77-7.77,16.04-14.5,24.59-19.98,1.76-1.14,4.11-.62,5.24,1.14,1.13,1.76,.62,4.11-1.14,5.24-8.08,5.2-15.93,11.58-23.32,18.97-13.47,13.47-23.63,28.54-28.63,42.44-4.59,12.77-4.15,23.16,1.2,28.51,6.14,6.14,18.85,5.76,34-1.01,1.91-.85,4.16,0,5.01,1.91s0,4.16-1.91,5.01c-9,4.03-17.3,6.03-24.43,6.03Z"/>
+    </g>
+  </svg>
+);
 
 interface Document {
   id: string;
@@ -113,6 +138,13 @@ export default function DocumentViewPage() {
   
   // Selected element state for showing connection points
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  
+  // Canvas context menu state (right-click on empty canvas area)
+  const [canvasContextMenu, setCanvasContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+  }>({ visible: false, x: 0, y: 0 });
   
   // Element-to-element connections
   interface ElementConnection {
@@ -344,6 +376,7 @@ export default function DocumentViewPage() {
     const handleClick = () => {
       setContextMenu(prev => ({ ...prev, visible: false }));
       setMediaContextMenu(prev => ({ ...prev, visible: false }));
+      setCanvasContextMenu(prev => ({ ...prev, visible: false }));
     };
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
@@ -372,6 +405,23 @@ export default function DocumentViewPage() {
       x: e.clientX,
       y: e.clientY,
       mediaIndex,
+    });
+  };
+  
+  // Handle right-click on canvas (empty area)
+  const handleCanvasContextMenu = (e: React.MouseEvent) => {
+    // Only show if clicking on the canvas surface itself, not on elements
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-draggable-id]')) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(prev => ({ ...prev, visible: false }));
+    setMediaContextMenu(prev => ({ ...prev, visible: false }));
+    setCanvasContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
     });
   };
   
@@ -479,7 +529,7 @@ export default function DocumentViewPage() {
         setSaveAlert({
           open: true,
           success: true,
-          message: "Bild wurde erfolgreich in Media gespeichert!"
+          message: "Image successfully saved to Media!"
         });
         // Optionally remove from generated images after saving
         // setGeneratedImages(prev => prev.filter(img => img.id !== contextMenu.imageId));
@@ -877,41 +927,27 @@ export default function DocumentViewPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Document List */}
-        <div className="w-48 overflow-y-auto py-2">
-          {allDocuments.map((doc) => (
-            <Link
-              key={doc.id}
-              href={`/workspace/${workspaceId}/document/${doc.id}`}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted/50 ${
-                doc.id === documentId ? "bg-muted" : ""
-              }`}
-            >
-              {doc.mime_type?.startsWith("image/") ? (
-                <ImageIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              ) : doc.mime_type === "application/pdf" ? (
-                <img src="/pdf-icon.svg" alt="PDF" className="h-3.5 w-3.5 flex-shrink-0" />
-              ) : (
-                <File className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              )}
-              <span className="truncate">{doc.title}</span>
-            </Link>
-          ))}
-        </div>
-
         {/* Main Content */}
-        <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 flex flex-col relative overflow-hidden document-canvas-surface">
+          {/* Floating Top Toolbar - Fixed position above canvas */}
+          <DocumentFloatingToolbar
+            zoom={zoom}
+            onDownload={handleDownload}
+            onOpenPreview={() => setIsPreviewOpen(true)}
+          />
           {/* Document Preview - Scrollable area */}
-          <div 
-            className="flex-1 overflow-auto p-8 relative document-canvas-surface"
-            style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}
-          >
-            {/* Floating Top Toolbar */}
-            <DocumentFloatingToolbar
-              zoom={zoom}
-              onDownload={handleDownload}
-              onOpenPreview={() => setIsPreviewOpen(true)}
-            />
+          <div className="flex-1 overflow-auto relative">
+            <div 
+              className="p-8 relative"
+              style={{ 
+                transform: `scale(${zoom / 100})`, 
+                transformOrigin: "top left",
+                width: `${100 / (zoom / 100)}%`,
+                height: `${100 / (zoom / 100)}%`,
+                minWidth: `${5000 * (zoom / 100)}px`,
+                minHeight: `${5000 * (zoom / 100)}px`
+              }}
+            >
 
             <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
               <DialogContent
@@ -948,7 +984,10 @@ export default function DocumentViewPage() {
             </Dialog>
 
             {/* n8n-style Canvas: Freely draggable elements with curved connection lines */}
-            <div className="relative min-w-[3000px] min-h-[2000px]">
+            <div 
+              className="relative min-w-[5000px] min-h-[5000px]"
+              onContextMenu={handleCanvasContextMenu}
+            >
               {/* SVG Layer for Curved Connection Lines */}
               <svg className="absolute inset-0 w-full h-full pointer-events-none z-30" style={{ overflow: 'visible' }}>
                 <defs>
@@ -1343,31 +1382,16 @@ export default function DocumentViewPage() {
                   initialY={100 + (index * 350)}
                   onBoundsChange={handleBoundsChange}
                 >
-                  <div 
-                    className="relative group"
+                  <ResizableGeneratedImage
+                    id={genImg.id}
+                    url={genImg.url}
+                    title={genImg.title}
                     onContextMenu={(e) => handleContextMenu(e, genImg.id)}
-                  >
-                    {/* Generated badge */}
-                    <div className="absolute -top-3 -right-3 bg-violet-500 text-white text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-md z-10">
-                      <Sparkles className="h-3 w-3" />
-                      <span>Generated</span>
-                    </div>
-                    {/* Image with purple border */}
-                    <div className="relative rounded-xl overflow-hidden ring-2 ring-violet-500 ring-offset-2">
-                      <img
-                        src={genImg.url}
-                        alt={genImg.title}
-                        className="w-[300px] h-auto object-contain rounded-xl shadow-lg"
-                      />
-                    </div>
-                    {/* Title label */}
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm border text-xs text-muted-foreground whitespace-nowrap max-w-[280px] truncate">
-                      {genImg.title}
-                    </div>
-                  </div>
+                  />
                 </DraggableElement>
               ))}
               
+            </div>
             </div>
           </div>
         </div>
@@ -1459,12 +1483,43 @@ export default function DocumentViewPage() {
         </div>
       )}
 
+      {/* Canvas Context Menu - Right-click on empty canvas area */}
+      {canvasContextMenu.visible && (
+        <div
+          className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px] z-[9999]"
+          style={{ left: canvasContextMenu.x, top: canvasContextMenu.y }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setShowAddMediaPopover(true);
+              setCanvasContextMenu(prev => ({ ...prev, visible: false }));
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <ImagePlus className="h-4 w-4 text-gray-500" />
+            <span>Add Image</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowAIPanel(true);
+              setCanvasContextMenu(prev => ({ ...prev, visible: false }));
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <AIIcon className="h-4 w-4 text-gray-500" />
+            <span>Create Image</span>
+          </button>
+        </div>
+      )}
+
       {/* Save Alert Dialog */}
       <AlertDialog open={saveAlert.open} onOpenChange={(open) => setSaveAlert(prev => ({ ...prev, open }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className={saveAlert.success ? "text-[var(--accent-primary-light)]" : "text-red-600"}>
-              {saveAlert.success ? "Erfolg!" : "Fehler"}
+              {saveAlert.success ? "Success!" : "Error"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {saveAlert.message}

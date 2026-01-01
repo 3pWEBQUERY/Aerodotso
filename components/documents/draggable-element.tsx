@@ -51,12 +51,11 @@ export function DraggableElement({
   useEffect(() => {
     if (onBoundsChange && elementRef.current) {
       const rect = elementRef.current.getBoundingClientRect();
-      const parentRect = elementRef.current.parentElement?.getBoundingClientRect();
-      const offsetX = parentRect?.left || 0;
-      const offsetY = parentRect?.top || 0;
+      // Use the actual position state for x/y (canvas-relative)
+      // but get width/height from the rendered element
       onBoundsChange(id, {
-        x: rect.left - offsetX,
-        y: rect.top - offsetY,
+        x: position.x,
+        y: position.y,
         width: rect.width,
         height: rect.height,
       });
@@ -70,12 +69,10 @@ export function DraggableElement({
     const observer = new ResizeObserver(() => {
       if (elementRef.current) {
         const rect = elementRef.current.getBoundingClientRect();
-        const parentRect = elementRef.current.parentElement?.getBoundingClientRect();
-        const offsetX = parentRect?.left || 0;
-        const offsetY = parentRect?.top || 0;
+        // Use the actual position state for x/y (canvas-relative)
         onBoundsChange(id, {
-          x: rect.left - offsetX,
-          y: rect.top - offsetY,
+          x: position.x,
+          y: position.y,
           width: rect.width,
           height: rect.height,
         });

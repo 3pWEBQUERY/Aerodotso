@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Send, Sparkles, ImageIcon, Loader2, Paperclip, Globe, ChevronDown } from "lucide-react";
+import { X, Send, Sparkles, ImageIcon, Loader2, ChevronDown } from "lucide-react";
 import { ConnectionPoints } from "./connection-points";
 
 // Available AI Image Generation Models
@@ -75,13 +75,6 @@ export function AIImagePanelCard({
   const handleSend = async () => {
     if (!inputValue.trim() || isGenerating) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: inputValue.trim(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
     const prompt = inputValue.trim();
     setInputValue("");
     setIsGenerating(true);
@@ -113,35 +106,13 @@ export function AIImagePanelCard({
       const data = await response.json();
 
       if (data.success && data.imageUrl) {
-        // Image generated successfully
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: `✨ Image generated with ${selectedModelData?.name}!`,
-          imageUrl: data.imageUrl,
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
-
+        // Image generated successfully - just call the callback, no messages
         if (onImageGenerated) {
-          onImageGenerated(data.imageUrl, `Generated: ${prompt.slice(0, 30)}...`);
+          onImageGenerated(data.imageUrl, prompt);
         }
-      } else {
-        // Error or processing message
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.error || "Generating your image... This may take a moment.",
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
       }
     } catch (error) {
       console.error("Failed to generate:", error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Sorry, there was an error generating your image. Please try again.",
-      };
-      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsGenerating(false);
     }
@@ -209,59 +180,34 @@ export function AIImagePanelCard({
         </div>
       )}
 
-      {/* Messages Area */}
+      {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-4">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-              <Sparkles className="h-6 w-6 text-gray-400" />
-            </div>
-            <h3 className="font-medium text-gray-900 mb-1">Start a conversation</h3>
-            <p className="text-sm text-muted-foreground max-w-[250px]">
-              {connectedImages.length > 0 
-                ? "Beschreibe, wie das neue Bild aussehen soll"
-                : "Ask questions, brainstorm ideas, or get help with your work"
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
-                    message.role === "user"
-                      ? "bg-[var(--accent-primary)] text-white"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  {message.content}
-                  {message.imageUrl && (
-                    <img
-                      src={message.imageUrl}
-                      alt="Generated"
-                      className="mt-2 rounded-lg max-w-full"
-                    />
-                  )}
-                </div>
+        <div className="flex flex-col items-center justify-center h-full text-center">
+          {isGenerating ? (
+            <>
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
               </div>
-            ))}
-            {isGenerating && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-2xl px-4 py-2.5 flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                  <span className="text-sm text-gray-500">Thinking...</span>
-                </div>
+              <h3 className="font-medium text-gray-900 mb-1">Generating...</h3>
+              <p className="text-sm text-muted-foreground max-w-[250px]">
+                Your image is being created
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <Sparkles className="h-6 w-6 text-gray-400" />
               </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+              <h3 className="font-medium text-gray-900 mb-1">Create with AI</h3>
+              <p className="text-sm text-muted-foreground max-w-[250px]">
+                {connectedImages.length > 0 
+                  ? "Beschreibe, wie das neue Bild aussehen soll"
+                  : "Describe what image you want to create"
+                }
+              </p>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Input Area */}
@@ -272,25 +218,11 @@ export function AIImagePanelCard({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything..."
+            placeholder="Create or edit your image however you want!"
             className="w-full resize-none bg-transparent px-4 py-3 text-sm outline-none min-h-[44px] max-h-[100px]"
             rows={1}
           />
-          <div className="flex items-center justify-between px-3 pb-2">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <Paperclip className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <Globe className="h-4 w-4" />
-              </button>
-            </div>
+          <div className="flex items-center justify-end px-3 pb-2">
             <div className="flex items-center gap-2">
               {/* Model Selector Dropdown */}
               <div className="relative" ref={dropdownRef}>

@@ -98,7 +98,7 @@ export function ScretchSidebar({ workspaceId }: ScretchSidebarProps) {
         <span className="font-medium">Scratches</span>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-hide">
         {scratches.map((scratch) => (
           <div
             key={scratch.id}

@@ -236,7 +236,7 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto px-2 pt-2 space-y-3">
+      <div className="flex-1 overflow-y-auto px-2 pt-2 space-y-3 scrollbar-hide">
         <button
           type="button"
           className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)]"

@@ -142,6 +142,15 @@
   -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
 }
 
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .document-canvas-surface {
   --canvas-surface-base: #f8f9fb;
   --canvas-surface-dot-color: rgba(168, 176, 190, 0.35);

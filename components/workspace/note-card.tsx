@@ -42,7 +42,7 @@ export function NoteCard({
       className={`
         group relative rounded-2xl bg-white hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden
         shadow-sm border border-gray-100 h-56 flex flex-col
-        ${isSelected ? "ring-2 ring-emerald-500 ring-offset-2" : ""}
+        ${isSelected ? "ring-2 ring-[var(--accent-primary)] ring-offset-2" : ""}
       `}
       onClick={onClick}
     >
@@ -82,7 +82,7 @@ export function NoteCard({
         className={`
           absolute top-3 right-3 w-5 h-5 rounded-md border-2 flex items-center justify-center z-20 transition-all cursor-pointer
           ${isSelected
-            ? "bg-emerald-500 border-emerald-500"
+            ? "bg-[var(--accent-primary)]/100 border-[var(--accent-primary)]"
             : "border-gray-300 bg-white opacity-0 group-hover:opacity-100"
           }
         `}

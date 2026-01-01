@@ -43,7 +43,7 @@ export function LandscapeLinkCard({
       <Link
         href={`/workspace/${workspaceId}/links/${id}`}
         className={`group relative block h-56 overflow-hidden bg-gray-900 rounded-2xl transition-all cursor-pointer ${
-          isSelected ? "ring-2 ring-emerald-500 ring-offset-2" : "hover:ring-2 hover:ring-gray-300"
+          isSelected ? "ring-2 ring-[var(--accent-primary)] ring-offset-2" : "hover:ring-2 hover:ring-gray-300"
         }`}
       >
         {/* Thumbnail */}
@@ -63,7 +63,7 @@ export function LandscapeLinkCard({
         <div
           className={`absolute top-3 left-3 z-10 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm ${
             isSelected
-              ? "bg-emerald-500 border-emerald-500"
+              ? "bg-[var(--accent-primary)]/100 border-[var(--accent-primary)]"
               : "border-white/80 bg-black/30 opacity-0 group-hover:opacity-100"
           }`}
           onClick={onCheckboxClick}

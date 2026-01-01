@@ -13,7 +13,7 @@ import {
   StickyNote,
   ImageIcon,
   Link2,
-  LayoutTemplate,
+  LayoutPanelLeft,
   MoreVertical,
   Key,
   Settings,
@@ -24,6 +24,7 @@ import {
   LogOut,
   ChevronRight,
   Check,
+  Pencil,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -39,13 +40,13 @@ import {
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { SettingsModal } from "@/components/settings/settings-modal";
-import { MediaSidebar, SearchSidebar, NotesSidebar, HomeSidebar, LinksSidebar, CanvasSidebar } from "./sidebars";
+import { MediaSidebar, SearchSidebar, NotesSidebar, HomeSidebar, LinksSidebar, CanvasSidebar, ScretchSidebar, ChatSidebar } from "./sidebars";
 
 interface SidebarNavProps {
   workspaceId?: string;
 }
 
-const configurableTabIds = ["chat", "notes", "media", "links", "canvas"] as const;
+const configurableTabIds = ["chat", "notes", "media", "links", "canvas", "scretch"] as const;
 type ConfigurableTabId = (typeof configurableTabIds)[number];
 
 interface Notification {
@@ -218,6 +219,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
     media: true,
     links: true,
     canvas: true,
+    scretch: true,
   });
   const [showLabels, setShowLabels] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -265,15 +267,28 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
     {
       id: "canvas",
       label: "Canvas",
-      icon: LayoutTemplate,
+      icon: LayoutPanelLeft,
       href: `${base}/canvas`,
+    },
+    {
+      id: "scretch",
+      label: "Scretch",
+      icon: Pencil,
+      href: `${base}/scretch`,
     },
   ];
 
-  const isActive = (href: string) => {
+  const isActive = (href: string, isHome?: boolean) => {
     if (!pathname) return false;
+    // Home should only be active on exact match
+    if (isHome) {
+      return pathname === href || pathname === `${href}/`;
+    }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  // State for hovered tab (to show secondary sidebar on hover)
+  const [hoveredTab, setHoveredTab] = useState<string | null>(null);
 
   const toggleTabVisible = (id: ConfigurableTabId) => {
     setVisibleTabs((prev) => ({
@@ -282,40 +297,60 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
     }));
   };
 
-  // Determine which secondary sidebar to show based on current route
-  const getSecondarySidebar = () => {
+  // Get sidebar component for a specific tab ID
+  const getSidebarForTab = (tabId: string) => {
+    if (!workspaceId) return null;
+    
+    switch (tabId) {
+      case "search": return <SearchSidebar workspaceId={workspaceId} />;
+      case "home": return <HomeSidebar workspaceId={workspaceId} />;
+      case "chat": return <ChatSidebar workspaceId={workspaceId} />;
+      case "notes": return <NotesSidebar workspaceId={workspaceId} />;
+      case "media": return <MediaSidebar workspaceId={workspaceId} />;
+      case "links": return <LinksSidebar workspaceId={workspaceId} />;
+      case "canvas": return <CanvasSidebar workspaceId={workspaceId} />;
+      case "scretch": return <ScretchSidebar workspaceId={workspaceId} />;
+      default: return null;
+    }
+  };
+
+  // Get the current route's tab ID
+  const getCurrentRouteTab = (): string | null => {
     if (!pathname || !workspaceId) return null;
     
-    if (pathname.includes("/media")) {
-      return <MediaSidebar workspaceId={workspaceId} />;
-    }
-    if (pathname.includes("/search")) {
-      return <SearchSidebar workspaceId={workspaceId} />;
-    }
-    if (pathname.includes("/notes")) {
-      return <NotesSidebar workspaceId={workspaceId} />;
-    }
-    // Chat page has its own internal sidebar with hover buttons
-    if (pathname.includes("/links")) {
-      return <LinksSidebar workspaceId={workspaceId} />;
-    }
-    if (pathname.includes("/canvas")) {
-      return <CanvasSidebar workspaceId={workspaceId} />;
-    }
-    // Home page (workspace root without specific sub-route)
-    if (pathname === `/workspace/${workspaceId}` || pathname === `/workspace/${workspaceId}/`) {
-      return <HomeSidebar workspaceId={workspaceId} />;
-    }
+    if (pathname.includes("/search")) return "search";
+    if (pathname.includes("/chat")) return "chat";
+    if (pathname.includes("/notes")) return "notes";
+    if (pathname.includes("/media")) return "media";
+    if (pathname.includes("/links")) return "links";
+    if (pathname.includes("/canvas")) return "canvas";
+    if (pathname.includes("/scretch")) return "scretch";
+    if (pathname === `/workspace/${workspaceId}` || pathname === `/workspace/${workspaceId}/`) return "home";
     
+    return null;
+  };
+
+  const currentRouteTab = getCurrentRouteTab();
+
+  // Determine which secondary sidebar to show - hover takes priority, otherwise show current route
+  const getSecondarySidebar = () => {
+    // Show sidebar for hovered tab (if different from current)
+    if (hoveredTab) {
+      return getSidebarForTab(hoveredTab);
+    }
+    // Otherwise show sidebar for current route
+    if (currentRouteTab) {
+      return getSidebarForTab(currentRouteTab);
+    }
     return null;
   };
 
   const secondarySidebar = getSecondarySidebar();
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full p-3 pl-3 gap-2">
       {/* Primary Icon Navigation */}
-      <div className="flex h-full w-14 flex-col justify-between bg-background border-r">
+      <div className="flex h-full w-14 flex-col justify-between rounded-xl" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
         {/* Oben: Create-Button + vertikale Tabs wie bei Eden */}
         <div className="flex flex-col items-center gap-3 pt-2 pb-3 px-1">
         {/* Create */}
@@ -324,7 +359,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
           className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-50 shadow-lg hover:shadow-xl focus-visible:outline-none"
           style={{
             backgroundImage:
-              "linear-gradient(to right, rgb(26,61,46), rgb(58,86,73))",
+              "linear-gradient(to right, var(--accent-primary), var(--accent-primary-hover))",
           }}
           aria-label="Create"
         >
@@ -342,21 +377,23 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
             }
 
             const Icon = tab.icon;
-            const active = isActive(tab.href);
+            const active = isActive(tab.href, tab.id === "home");
 
             return (
               <Link
                 key={tab.id}
                 href={tab.href}
                 className="group relative w-full"
+                onMouseEnter={() => setHoveredTab(tab.id)}
+                onMouseLeave={() => setHoveredTab(null)}
               >
                 <div className="flex flex-col items-center gap-0.5 py-0.5">
                   <div
                     className={cn(
                       "relative flex h-8 w-8 items-center justify-center rounded-lg transition-all",
                       active
-                        ? "bg-neutral-200 text-emerald-900"
-                        : "text-muted-foreground hover:bg-neutral-100"
+                        ? "bg-[var(--workspace-sidebar-muted)] text-[var(--accent-primary-light)]"
+                        : "text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)] hover:text-[var(--accent-primary-light)]"
                     )}
                   >
                     <Icon className="relative z-10 h-4 w-4 transition-transform group-hover:scale-110 group-focus-visible:scale-110" />
@@ -365,7 +402,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
                     <span
                       className={cn(
                         "text-[9px] leading-tight font-medium",
-                        active ? "text-emerald-900" : "text-muted-foreground"
+                        active ? "text-[var(--accent-primary-light)]" : "text-[var(--workspace-sidebar-muted-foreground)]"
                       )}
                     >
                       {tab.label}
@@ -384,11 +421,11 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
                 className="flex flex-col items-center gap-0.5 py-0.5 w-full"
                 aria-label="More options"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-neutral-100">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)] hover:text-[var(--workspace-sidebar-foreground)]">
                   <MoreVertical className="h-4 w-4" />
                 </div>
                 {showLabels && (
-                  <span className="text-[9px] leading-tight font-medium text-muted-foreground">
+                  <span className="text-[9px] leading-tight font-medium text-[var(--workspace-sidebar-muted-foreground)]">
                     More
                   </span>
                 )}
@@ -425,7 +462,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
       <div className="flex flex-col items-center gap-1 pb-3">
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-neutral-100"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)] hover:text-[var(--workspace-sidebar-foreground)]"
           aria-label="API Keys"
         >
           <Key className="h-4 w-4" />
@@ -433,7 +470,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-neutral-100"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)] hover:text-[var(--workspace-sidebar-foreground)]"
           aria-label="Settings"
         >
           <Settings className="h-4 w-4" />
@@ -451,7 +488,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-white text-xs font-medium overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-primary-hover)] text-white text-xs font-medium overflow-hidden focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-offset-2"
               aria-label="Profile menu"
             >
               {userProfile?.avatar_url ? (
@@ -468,7 +505,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
           <DropdownMenuContent side="right" align="end" className="w-64">
             {/* User Info Header */}
             <div className="flex items-center gap-3 px-3 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-white text-sm font-medium overflow-hidden flex-shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-primary-hover)] text-white text-sm font-medium overflow-hidden flex-shrink-0">
                 {userProfile?.avatar_url ? (
                   <img
                     src={userProfile.avatar_url}
@@ -532,7 +569,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
                 <UserPlus className="h-4 w-4 text-muted-foreground" />
                 <span>Workspace Invites</span>
                 {workspaceInvites.length > 0 && (
-                  <span className="ml-auto text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">
+                  <span className="ml-auto text-xs bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] px-1.5 py-0.5 rounded-full">
                     {workspaceInvites.length}
                   </span>
                 )}
@@ -549,7 +586,7 @@ export function SidebarNav({ workspaceId }: SidebarNavProps) {
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            className="flex-1 px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                            className="flex-1 px-2 py-1 text-xs bg-[var(--accent-primary)] text-white rounded hover:bg-[var(--accent-primary-hover)]"
                             onClick={() => handleInvite(invite.id, "accept")}
                           >
                             Accept

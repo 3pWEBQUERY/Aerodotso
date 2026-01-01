@@ -144,7 +144,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
     linkList.map((link) => (
       <div
         key={link.id}
-        className="group flex items-center rounded-md hover:bg-muted mb-0.5 overflow-hidden"
+        className="group flex items-center rounded-md hover:bg-[var(--workspace-sidebar-muted)] mb-0.5 overflow-hidden"
       >
         {editingId === link.id ? (
           <div className="flex-1 flex items-center gap-2 px-2 py-1">
@@ -163,7 +163,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
                   setEditingId(null);
                 }
               }}
-              className="flex-1 bg-white border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+              className="flex-1 bg-[var(--workspace-sidebar-muted)] border border-[var(--workspace-sidebar-border)] rounded px-1 py-0.5 text-xs text-[var(--workspace-sidebar-foreground)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
               autoFocus
               onClick={(e) => e.stopPropagation()}
             />
@@ -174,7 +174,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground"
+              className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-[var(--workspace-sidebar-muted-foreground)]"
             >
               <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
               <span className="truncate max-w-[80px]">
@@ -186,7 +186,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
               <button
                 type="button"
                 onClick={(e) => startEditing(link, e)}
-                className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                 title="Rename"
               >
                 <Pencil className="h-3 w-3" />
@@ -194,7 +194,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
               <button
                 type="button"
                 onClick={(e) => copyLink(link.url, e)}
-                className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                 title="Copy URL"
               >
                 <Copy className="h-3 w-3" />
@@ -202,7 +202,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
               <button
                 type="button"
                 onClick={(e) => deleteLink(link.id, e)}
-                className="p-1 hover:bg-red-100 rounded text-gray-500 hover:text-red-600"
+                className="p-1 hover:bg-red-500/20 rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-red-400"
                 title="Delete"
               >
                 <Trash2 className="h-3 w-3" />
@@ -214,27 +214,16 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
     ));
 
   return (
-    <aside className="w-44 flex-shrink-0 border-r text-sm flex flex-col overflow-hidden bg-background">
-      <header className="flex items-center justify-between px-3 py-2 border-b">
+    <aside className="w-64 flex-shrink-0 rounded-xl text-sm flex flex-col overflow-hidden border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+      <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--workspace-sidebar-border)] text-[var(--workspace-sidebar-foreground)]">
         <span className="font-medium">Links</span>
       </header>
-
-      {/* All Links Button */}
-      <div className="px-3 py-2 border-b">
-        <Link
-          href={`/workspace/${workspaceId}/links`}
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs bg-muted font-medium"
-        >
-          <Link2 className="h-3.5 w-3.5" />
-          All Links
-        </Link>
-      </div>
 
       {/* Links List */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {groupedLinks.today.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2">
               Today
             </p>
             {renderLinkList(groupedLinks.today)}
@@ -243,7 +232,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
 
         {groupedLinks.yesterday.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Yesterday
             </p>
             {renderLinkList(groupedLinks.yesterday)}
@@ -252,7 +241,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
 
         {groupedLinks.pastWeek.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Past Week
             </p>
             {renderLinkList(groupedLinks.pastWeek)}
@@ -261,7 +250,7 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
 
         {groupedLinks.older.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Older
             </p>
             {renderLinkList(groupedLinks.older)}
@@ -269,17 +258,12 @@ export function LinksSidebar({ workspaceId }: LinksSidebarProps) {
         )}
 
         {links.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">
+          <p className="text-xs text-[var(--workspace-sidebar-muted-foreground)] text-center py-4">
             No links yet
           </p>
         )}
       </div>
 
-      {/* Trash */}
-      <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-        <Trash2 className="h-3.5 w-3.5" />
-        <span>Trash</span>
-      </div>
     </aside>
   );
 }

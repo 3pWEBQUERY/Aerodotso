@@ -35,8 +35,8 @@ export function LandscapeMediaCard({
         }}
         className={`absolute top-3 left-3 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
           isSelected
-            ? "bg-emerald-600 border-emerald-600 text-white opacity-100"
-            : "bg-white/80 border-gray-300 hover:border-emerald-500 opacity-0 group-hover:opacity-100"
+            ? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white opacity-100"
+            : "bg-white/80 border-gray-300 hover:border-[var(--accent-primary)] opacity-0 group-hover:opacity-100"
         }`}
       >
         {isSelected && <Check className="h-4 w-4" />}
@@ -52,7 +52,7 @@ export function LandscapeMediaCard({
       <Link href={href}>
         <div
           className={`w-80 h-56 rounded-2xl overflow-hidden bg-gray-100 relative ${
-            isSelected ? "ring-2 ring-emerald-500 ring-offset-2" : ""
+            isSelected ? "ring-2 ring-[var(--accent-primary)] ring-offset-2" : ""
           }`}
         >
           {/* Image */}

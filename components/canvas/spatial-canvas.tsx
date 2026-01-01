@@ -23,10 +23,14 @@ import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./edges";
 import { useSocialUrlPaste } from "@/hooks/use-social-url-paste";
 import { AddMediaPopover } from "@/components/documents/add-media-popover";
+import { AddVideoPopover } from "@/components/documents/add-video-popover";
+import { AddLinkPopover } from "@/components/documents/add-link-popover";
 
 // Components
 import { CanvasNodePalette } from "./canvas-node-palette";
+import { DraggableNodePalette } from "./draggable-node-palette";
 import { CanvasContextMenu } from "./canvas-context-menu";
+import { CanvasToolbar } from "./canvas-toolbar";
 import { 
   NodeInspector, 
   CommandPalette, 
@@ -73,6 +77,19 @@ function SpatialCanvasFlow({
 
   const [showAddImagePopover, setShowAddImagePopover] = useState(false);
   const [pendingImagePosition, setPendingImagePosition] = useState<{ x: number; y: number } | null>(null);
+  const [showAddVideoPopover, setShowAddVideoPopover] = useState(false);
+  const [pendingVideoPosition, setPendingVideoPosition] = useState<{ x: number; y: number } | null>(null);
+  const [showAddLinkPopover, setShowAddLinkPopover] = useState(false);
+  const [pendingLinkPosition, setPendingLinkPosition] = useState<{ x: number; y: number } | null>(null);
+  const [activeTool, setActiveTool] = useState<"select" | "pan" | "shape">("select");
+  const [showInsertMenu, setShowInsertMenu] = useState(false);
+  const [showChatPanel, setShowChatPanel] = useState(false);
+  const [showShapeMenu, setShowShapeMenu] = useState(false);
+  
+  // Shape drawing state
+  const [isDrawingShape, setIsDrawingShape] = useState(false);
+  const [shapeStartPos, setShapeStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [shapeCurrentPos, setShapeCurrentPos] = useState<{ x: number; y: number } | null>(null);
 
   // Store
   const {
@@ -92,6 +109,8 @@ function SpatialCanvasFlow({
     setWorkspaceId,
     pushHistory,
     settings: storeSettings,
+    addNodeToFolder,
+    getFolderAtPosition,
   } = useCanvasStore();
 
   // Settings with defaults
@@ -112,8 +131,20 @@ function SpatialCanvasFlow({
     setWorkspaceId(workspaceId);
     
     if (initialNodes.length > 0 || initialEdges.length > 0) {
+      // Set zIndex for nodes - PostIt should always be on top
+      const nodesWithZIndex = initialNodes.map(node => {
+        if (node.type === 'postit') {
+          return { ...node, zIndex: 1000 };
+        }
+        // Other content nodes get lower zIndex
+        if (node.type === 'image' || node.type === 'video' || node.type === 'document' || node.type === 'url' || node.type === 'note') {
+          return { ...node, zIndex: node.zIndex ?? 1 };
+        }
+        return node;
+      });
+      
       loadCanvas({
-        nodes: initialNodes,
+        nodes: nodesWithZIndex,
         edges: initialEdges,
         canvasId,
         workspaceId,
@@ -185,6 +216,20 @@ function SpatialCanvasFlow({
         return;
       }
 
+      // For video nodes, open a picker first (select existing workspace videos)
+      if (type === 'video') {
+        setPendingVideoPosition(position);
+        setShowAddVideoPopover(true);
+        return;
+      }
+
+      // For URL/Link nodes, open a picker first (select existing workspace links or create new)
+      if (type === 'url') {
+        setPendingLinkPosition(position);
+        setShowAddLinkPopover(true);
+        return;
+      }
+
       let nodeData: Partial<CanvasNodeData> = {};
       if (nodeDataStr) {
         try {
@@ -210,16 +255,29 @@ function SpatialCanvasFlow({
           content: '',
           backgroundColor: '#fef3c7',
         };
+      } else if (type === 'postit') {
+        typeSpecificData = {
+          items: [],
+          backgroundColor: 'green',
+        };
       } else if (type === 'url') {
         typeSpecificData = {
           url: '',
         };
       }
 
+      // Set zIndex based on node type - PostIt on top, others below
+      const getZIndex = () => {
+        if (type === 'postit') return 1000;
+        if (['image', 'video', 'document', 'url', 'note', 'social-post'].includes(type)) return 1;
+        return undefined;
+      };
+
       const newNode: CanvasNode = {
         id: `${type}-${Date.now()}`,
         type: type,
         position,
+        zIndex: getZIndex(),
         data: {
           type: type as CanvasNodeData["type"],
           label: nodeData.label || `New ${type}`,
@@ -254,6 +312,7 @@ function SpatialCanvasFlow({
             id: `image-${Date.now()}-${index}`,
             type: 'image',
             position,
+            zIndex: 1, // Keep images below PostIt nodes
             data: {
               type: 'image',
               label: doc.title || 'Image',
@@ -275,6 +334,7 @@ function SpatialCanvasFlow({
             id: `image-${Date.now()}-${index}`,
             type: 'image',
             position,
+            zIndex: 1, // Keep images below PostIt nodes
             data: {
               type: 'image',
               label: doc.title || 'Image',
@@ -298,6 +358,83 @@ function SpatialCanvasFlow({
       setShowAddImagePopover(false);
     },
     [addNode, pendingImagePosition]
+  );
+
+  const handleAddWorkspaceVideosToCanvas = useCallback(
+    (docs: Array<{ id: string; title: string; mime_type: string; previewUrl?: string; file_size?: number }>) => {
+      if (!pendingVideoPosition) return;
+
+      docs.forEach((doc, index) => {
+        const url = doc.previewUrl || '';
+        const position = {
+          x: pendingVideoPosition.x + index * 40,
+          y: pendingVideoPosition.y + index * 40,
+        };
+
+        addNode({
+          id: `video-${Date.now()}-${index}`,
+          type: 'video',
+          position,
+          zIndex: 1,
+          data: {
+            type: 'video',
+            label: doc.title || 'Video',
+            url,
+            thumbnail: url,
+            duration: 0,
+            width: 0,
+            height: 0,
+            fileSize: doc.file_size || 0,
+            mimeType: doc.mime_type || 'video/*',
+            mediaLibraryId: doc.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            userId: '',
+          } as any,
+        });
+      });
+
+      setPendingVideoPosition(null);
+      setShowAddVideoPopover(false);
+    },
+    [addNode, pendingVideoPosition]
+  );
+
+  const handleAddWorkspaceLinksToCanvas = useCallback(
+    (links: Array<{ id: string; url: string; title: string; description?: string; thumbnail_url?: string; link_type?: string }>) => {
+      if (!pendingLinkPosition) return;
+
+      links.forEach((link, index) => {
+        const position = {
+          x: pendingLinkPosition.x + index * 40,
+          y: pendingLinkPosition.y + index * 40,
+        };
+
+        addNode({
+          id: `url-${Date.now()}-${index}`,
+          type: 'url',
+          position,
+          zIndex: 1,
+          data: {
+            type: 'url',
+            label: link.title || 'Link',
+            url: link.url,
+            title: link.title,
+            description: link.description,
+            thumbnail: link.thumbnail_url,
+            linkType: link.link_type,
+            workspaceLinkId: link.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            userId: '',
+          } as any,
+        });
+      });
+
+      setPendingLinkPosition(null);
+      setShowAddLinkPopover(false);
+    },
+    [addNode, pendingLinkPosition]
   );
 
   const onPaneClick = useCallback(() => {
@@ -346,6 +483,242 @@ function SpatialCanvasFlow({
     setShowAddImagePopover(true);
   }, [screenToFlowPosition]);
 
+  // Get center position for creating nodes
+  const getCanvasCenterPosition = useCallback(() => {
+    const el = reactFlowWrapper.current;
+    if (!el) return { x: 0, y: 0 };
+
+    const rect = el.getBoundingClientRect();
+    return screenToFlowPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+  }, [screenToFlowPosition]);
+
+  // Toolbar action handlers
+  const handleInsertFromWorkspace = useCallback(() => {
+    setShowCommandPalette(true);
+  }, []);
+
+  const handleCreateNote = useCallback(() => {
+    const position = getCanvasCenterPosition();
+    const newNode: CanvasNode = {
+      id: `note-${Date.now()}`,
+      type: 'note',
+      position,
+      zIndex: 1,
+      data: {
+        type: 'note',
+        label: 'New Note',
+        content: '',
+        backgroundColor: '#fef3c7',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: '',
+      } as CanvasNodeData,
+    };
+    addNode(newNode);
+    setSelectedNodes([newNode.id]);
+  }, [getCanvasCenterPosition, addNode, setSelectedNodes]);
+
+  const handleOpenChat = useCallback(() => {
+    const position = getCanvasCenterPosition();
+    const newNode: CanvasNode = {
+      id: `ai-chat-${Date.now()}`,
+      type: 'ai-chat',
+      position,
+      zIndex: 1,
+      data: {
+        type: 'ai-chat',
+        label: 'AI Chat',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: '',
+      } as CanvasNodeData,
+    };
+    addNode(newNode);
+    setSelectedNodes([newNode.id]);
+  }, [getCanvasCenterPosition, addNode, setSelectedNodes]);
+
+  const handleCreateText = useCallback(() => {
+    const position = getCanvasCenterPosition();
+    const newNode: CanvasNode = {
+      id: `note-${Date.now()}`,
+      type: 'note',
+      position,
+      zIndex: 1,
+      data: {
+        type: 'note',
+        label: 'Text',
+        content: '',
+        backgroundColor: '#ffffff',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: '',
+      } as CanvasNodeData,
+    };
+    addNode(newNode);
+    setSelectedNodes([newNode.id]);
+  }, [getCanvasCenterPosition, addNode, setSelectedNodes]);
+
+  const handleStartDrawing = useCallback(() => {
+    // For now, create a note as a placeholder for drawing functionality
+    const position = getCanvasCenterPosition();
+    const newNode: CanvasNode = {
+      id: `note-${Date.now()}`,
+      type: 'note',
+      position,
+      zIndex: 1,
+      data: {
+        type: 'note',
+        label: 'Drawing',
+        content: '✏️ Drawing placeholder - coming soon!',
+        backgroundColor: '#f3e8ff',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: '',
+      } as CanvasNodeData,
+    };
+    addNode(newNode);
+    setSelectedNodes([newNode.id]);
+  }, [getCanvasCenterPosition, addNode, setSelectedNodes]);
+
+  const handleCreateArrow = useCallback(() => {
+    // Create two connected nodes to demonstrate arrow functionality
+    const centerPosition = getCanvasCenterPosition();
+    const startPosition = { x: centerPosition.x - 100, y: centerPosition.y };
+    const endPosition = { x: centerPosition.x + 100, y: centerPosition.y };
+    
+    const startNode: CanvasNode = {
+      id: `postit-start-${Date.now()}`,
+      type: 'postit',
+      position: startPosition,
+      zIndex: 1000,
+      data: {
+        type: 'postit',
+        label: 'Start',
+        items: [],
+        backgroundColor: 'blue',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: '',
+      } as CanvasNodeData,
+    };
+    
+    const endNode: CanvasNode = {
+      id: `postit-end-${Date.now()}`,
+      type: 'postit',
+      position: endPosition,
+      zIndex: 1000,
+      data: {
+        type: 'postit',
+        label: 'End',
+        items: [],
+        backgroundColor: 'green',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: '',
+      } as CanvasNodeData,
+    };
+    
+    addNode(startNode);
+    addNode(endNode);
+    
+    // Create an edge between them
+    const edge: CanvasConnection = {
+      id: `edge-${startNode.id}-${endNode.id}`,
+      source: startNode.id,
+      target: endNode.id,
+      type: 'ai-connection',
+      data: {
+        connectionType: 'reference',
+        label: '',
+        color: '#6366f1',
+        style: 'solid',
+        animated: false,
+      },
+    } as CanvasConnection;
+    
+    storeAddEdge(edge);
+    setSelectedNodes([startNode.id, endNode.id]);
+  }, [getCanvasCenterPosition, addNode, storeAddEdge, setSelectedNodes]);
+
+  const handleCreateShape = useCallback(() => {
+    // Enable shape drawing mode
+    setActiveTool("shape");
+  }, []);
+
+  // Shape drawing handlers
+  const handleShapeMouseDown = useCallback((event: React.MouseEvent) => {
+    if (activeTool !== "shape") return;
+    
+    const rect = reactFlowWrapper.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const position = screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    setIsDrawingShape(true);
+    setShapeStartPos(position);
+    setShapeCurrentPos(position);
+  }, [activeTool, screenToFlowPosition]);
+
+  const handleShapeMouseMove = useCallback((event: React.MouseEvent) => {
+    if (!isDrawingShape || activeTool !== "shape") return;
+
+    const position = screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    setShapeCurrentPos(position);
+  }, [isDrawingShape, activeTool, screenToFlowPosition]);
+
+  const handleShapeMouseUp = useCallback(() => {
+    if (!isDrawingShape || !shapeStartPos || !shapeCurrentPos) {
+      setIsDrawingShape(false);
+      return;
+    }
+
+    const minX = Math.min(shapeStartPos.x, shapeCurrentPos.x);
+    const minY = Math.min(shapeStartPos.y, shapeCurrentPos.y);
+    const width = Math.abs(shapeCurrentPos.x - shapeStartPos.x);
+    const height = Math.abs(shapeCurrentPos.y - shapeStartPos.y);
+
+    // Only create if size is reasonable
+    if (width > 20 && height > 20) {
+      const newNode: CanvasNode = {
+        id: `shape-${Date.now()}`,
+        type: 'shape',
+        position: { x: minX, y: minY },
+        zIndex: 1,
+        data: {
+          type: 'shape',
+          label: 'Shape',
+          shapeType: 'rectangle',
+          width,
+          height,
+          backgroundColor: '#1f2937',
+          hasShadow: false,
+          hasRoundedCorners: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: '',
+        } as CanvasNodeData,
+      };
+      addNode(newNode);
+      setSelectedNodes([newNode.id]);
+    }
+
+    // Reset drawing state
+    setIsDrawingShape(false);
+    setShapeStartPos(null);
+    setShapeCurrentPos(null);
+    setActiveTool("select");
+  }, [isDrawingShape, shapeStartPos, shapeCurrentPos, addNode, setSelectedNodes]);
+
   const onNodeContextMenu: NodeMouseHandler = useCallback(
     (event, node) => {
       event.preventDefault();
@@ -358,16 +731,51 @@ function SpatialCanvasFlow({
     []
   );
 
+  // Handle node drag stop - check if dropped on a folder
+  const onNodeDragStop: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      // Don't allow folders to be dropped into folders
+      if (node.type === 'folder') return;
+      
+      // Check if node was dropped on a folder
+      const folder = getFolderAtPosition(
+        node.position.x + 50,
+        node.position.y + 50,
+        node.id
+      );
+      
+      if (folder) {
+        // Add all selected nodes to the folder (multi-select support)
+        const nodesToAdd = selectedNodeIds.length > 0 && selectedNodeIds.includes(node.id)
+          ? selectedNodeIds.filter(id => {
+              const n = nodes.find(n => n.id === id);
+              return n && n.type !== 'folder';
+            })
+          : [node.id];
+        
+        nodesToAdd.forEach(nodeId => {
+          addNodeToFolder(nodeId, folder.id);
+        });
+      }
+    },
+    [getFolderAtPosition, addNodeToFolder, selectedNodeIds, nodes]
+  );
+
   // ================================================================
   // KEYBOARD SHORTCUTS
   // ================================================================
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Only handle if focus is not in an input
+      // Only handle if focus is not in an input or editable element
+      const target = event.target as HTMLElement;
       if (
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable ||
+        target.closest('[contenteditable="true"]') ||
+        target.closest('.ProseMirror') ||
+        target.closest('.tiptap')
       ) {
         return;
       }
@@ -455,18 +863,79 @@ function SpatialCanvasFlow({
         event.preventDefault();
         setShowKeyboardHelp(true);
       }
+
+      // Select Tool: V
+      if (event.key === "v" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setActiveTool("select");
+      }
+
+      // Hand/Pan Tool: H (without modifier keys)
+      if (event.key === "h" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setActiveTool("pan");
+      }
+
+      // Insert from Workspace: I
+      if (event.key === "i" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        handleInsertFromWorkspace();
+      }
+
+      // Create Note: N
+      if (event.key === "n" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        handleCreateNote();
+      }
+
+      // Chat: C
+      if (event.key === "c" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        handleOpenChat();
+      }
+
+      // Text: T
+      if (event.key === "t" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        handleCreateText();
+      }
+
+      // Draw: D
+      if (event.key === "d" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        handleStartDrawing();
+      }
+
+      // Arrow: A
+      if (event.key === "a" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        handleCreateArrow();
+      }
+
+      // Shape: S
+      if (event.key === "s" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        handleCreateShape();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedNodeIds, clearSelection]);
+  }, [selectedNodeIds, clearSelection, handleInsertFromWorkspace, handleCreateNote, handleOpenChat, handleCreateText, handleStartDrawing, handleCreateArrow, handleCreateShape]);
 
   // ================================================================
   // RENDER
   // ================================================================
 
   return (
-    <div ref={reactFlowWrapper} className="w-full h-full">
+    <div 
+      ref={reactFlowWrapper} 
+      className={`w-full h-full document-canvas-surface ${activeTool === "shape" ? "cursor-crosshair" : ""}`}
+      onMouseDown={activeTool === "shape" ? handleShapeMouseDown : undefined}
+      onMouseMove={activeTool === "shape" ? handleShapeMouseMove : undefined}
+      onMouseUp={activeTool === "shape" ? handleShapeMouseUp : undefined}
+      onMouseLeave={activeTool === "shape" ? handleShapeMouseUp : undefined}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -479,6 +948,7 @@ function SpatialCanvasFlow({
         onNodeClick={onNodeClick}
         onPaneContextMenu={onPaneContextMenu}
         onNodeContextMenu={onNodeContextMenu}
+        onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         connectionMode={ConnectionMode.Loose}
@@ -493,12 +963,13 @@ function SpatialCanvasFlow({
         snapToGrid={settings.snapToGrid}
         snapGrid={[settings.gridSize, settings.gridSize]}
         selectNodesOnDrag={false}
-        selectionOnDrag
-        panOnScroll
-        zoomOnScroll
+        selectionOnDrag={activeTool === "select"}
+        panOnDrag={activeTool === "pan" ? true : activeTool === "shape" ? false : [1, 2]}
+        panOnScroll={activeTool !== "shape"}
+        zoomOnScroll={activeTool !== "shape"}
         preventScrolling
         proOptions={{ hideAttribution: true }}
-        style={{ backgroundColor: settings.backgroundColor }}
+        className={activeTool === "pan" ? "pan-mode" : activeTool === "shape" ? "shape-mode" : ""}
       >
         {/* Background */}
         {settings.showGrid && (
@@ -516,23 +987,46 @@ function SpatialCanvasFlow({
             nodeStrokeWidth={3}
             zoomable
             pannable
-            className="!bg-white !border !border-gray-200 !rounded-xl !shadow-lg !top-4 !right-4 !bottom-auto"
-            maskColor="rgba(0,0,0,0.08)"
+            style={{ backgroundColor: 'var(--workspace-sidebar)', border: '1px solid var(--workspace-sidebar-border)' }}
+            className="!rounded-xl !shadow-lg !top-4 !right-4 !bottom-auto"
+            maskColor="rgba(255,255,255,0.1)"
             position="top-right"
           />
         )}
 
-        {/* Node Palette Panel */}
-        <Panel position="top-left" className="!m-4">
-          <CanvasNodePalette
-            onAddNode={(type) => {
-              if (type === 'image') {
-                openImagePickerAtCanvasCenter();
-              }
-            }}
-          />
-        </Panel>
       </ReactFlow>
+
+      {/* Draggable Node Palette */}
+      <DraggableNodePalette
+        onAddNode={(type) => {
+          if (type === 'image') {
+            openImagePickerAtCanvasCenter();
+          }
+        }}
+      />
+
+      {/* Shape Drawing Overlay */}
+      {isDrawingShape && shapeStartPos && shapeCurrentPos && (
+        <div 
+          className="absolute pointer-events-none z-40"
+          style={{
+            left: Math.min(shapeStartPos.x, shapeCurrentPos.x),
+            top: Math.min(shapeStartPos.y, shapeCurrentPos.y),
+            width: Math.abs(shapeCurrentPos.x - shapeStartPos.x),
+            height: Math.abs(shapeCurrentPos.y - shapeStartPos.y),
+            backgroundColor: 'rgba(31, 41, 55, 0.8)',
+            borderRadius: '12px',
+            border: '2px dashed rgba(59, 130, 246, 0.8)',
+          }}
+        />
+      )}
+
+      {/* Shape Mode Indicator */}
+      {activeTool === "shape" && !isDrawingShape && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+          Click and drag to draw a shape
+        </div>
+      )}
 
       {/* Add Image from Workspace Popover */}
       <AddMediaPopover
@@ -546,6 +1040,28 @@ function SpatialCanvasFlow({
           // no-op; handled via onAddDocuments
         }}
         onAddDocuments={handleAddWorkspaceImagesToCanvas}
+      />
+
+      {/* Add Video from Workspace Popover */}
+      <AddVideoPopover
+        workspaceId={workspaceId}
+        isOpen={showAddVideoPopover}
+        onClose={() => {
+          setShowAddVideoPopover(false);
+          setPendingVideoPosition(null);
+        }}
+        onAddVideos={handleAddWorkspaceVideosToCanvas}
+      />
+
+      {/* Add Link from Workspace Popover */}
+      <AddLinkPopover
+        workspaceId={workspaceId}
+        isOpen={showAddLinkPopover}
+        onClose={() => {
+          setShowAddLinkPopover(false);
+          setPendingLinkPosition(null);
+        }}
+        onAddLinks={handleAddWorkspaceLinksToCanvas}
       />
 
       {/* Context Menu */}
@@ -623,6 +1139,19 @@ function SpatialCanvasFlow({
       {/* Integrated Zoom Controls */}
       <IntegratedZoomControls 
         onOpenSettings={() => setShowCanvasSettings(true)}
+      />
+
+      {/* Canvas Toolbar - Select/Pan Tools */}
+      <CanvasToolbar
+        activeTool={activeTool}
+        onToolChange={(tool) => setActiveTool(tool as "select" | "pan")}
+        onInsertFromWorkspace={handleInsertFromWorkspace}
+        onCreateNote={handleCreateNote}
+        onOpenChat={handleOpenChat}
+        onCreateText={handleCreateText}
+        onStartDrawing={handleStartDrawing}
+        onCreateArrow={handleCreateArrow}
+        onCreateShape={handleCreateShape}
       />
     </div>
   );

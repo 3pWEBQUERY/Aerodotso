@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { getToken } from "next-auth/jwt";
+import { authOptions } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getRailwayStorage } from "@/lib/railway-storage";
 import { generateQueryEmbedding } from "@/lib/visual-embeddings";
@@ -10,6 +13,16 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+async function resolveUserId(req: NextRequest, session: any): Promise<string | null> {
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
+  if (sessionUserId) return sessionUserId;
+
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const tokenUserId = ((token as any)?.id as string | undefined) ?? (token?.sub as string | undefined);
+  return tokenUserId ?? null;
+}
+
+
 /**
  * POST /api/search
  * Comprehensive search across workspace documents
@@ -17,7 +30,12 @@ function formatTime(seconds: number): string {
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseServerClient();
+    const session = await getServerSession(authOptions);
+    const userId = await resolveUserId(req, session);
+    
+    console.log("[Search API] Session:", session ? "exists" : "null");
+    console.log("[Search API] UserId:", userId || "not found");
 
     const body = await req.json();
     const { 
@@ -79,6 +97,47 @@ export async function POST(req: NextRequest) {
 
       const resultsWithPreviews = await addPreviewUrls(supabase, fallbackResults || []);
       
+      // Search in scratches
+      const { data: scratchResults } = await supabase
+        .from("scratches")
+        .select("id, title, thumbnail, searchable_text, tags, created_at")
+        .eq("workspace_id", workspaceId)
+        .or(`title.ilike.%${query}%,searchable_text.ilike.%${query}%`)
+        .limit(limit);
+      
+      const scratchItems = (scratchResults || []).map((s: any) => ({
+        id: s.id,
+        document_id: s.id,
+        title: s.title || "Untitled Scratch",
+        description: s.searchable_text?.slice(0, 200) || "",
+        thumbnail_path: s.thumbnail,
+        tags: s.tags,
+        similarity: 0.7,
+        search_type: "text",
+        result_type: "scratch",
+        created_at: s.created_at,
+      }));
+      
+      // Search in notes
+      const { data: noteResults } = await supabase
+        .from("notes")
+        .select("id, title, searchable_text, tags, created_at")
+        .eq("workspace_id", workspaceId)
+        .or(`title.ilike.%${query}%,searchable_text.ilike.%${query}%`)
+        .limit(limit);
+      
+      const noteItems = (noteResults || []).map((n: any) => ({
+        id: n.id,
+        document_id: n.id,
+        title: n.title || "Untitled Note",
+        description: n.searchable_text?.slice(0, 200) || "",
+        tags: n.tags,
+        similarity: 0.7,
+        search_type: "text",
+        result_type: "note",
+        created_at: n.created_at,
+      }));
+      
       // Also search in link transcripts
       const { data: transcriptResults } = await supabase
         .from("link_transcripts")
@@ -108,20 +167,52 @@ export async function POST(req: NextRequest) {
         start_time: t.start_time,
       }));
 
+      const fallbackAllResults = [
+        ...resultsWithPreviews.map((r: any) => ({
+          ...r,
+          document_id: r.id,
+          similarity: 0.5,
+          search_type: "text",
+          result_type: "document",
+        })),
+        ...scratchItems,
+        ...noteItems,
+        ...linkResults,
+      ];
+
+      // Save search to history for fallback path - ALWAYS include user_id
+      // Delete existing identical query first to prevent duplicates, then insert
+      if (userId) {
+        await supabase
+          .from("search_history")
+          .delete()
+          .eq("workspace_id", workspaceId)
+          .eq("user_id", userId)
+          .eq("query", query);
+        
+        const { error: historyError } = await supabase
+          .from("search_history")
+          .insert({
+            workspace_id: workspaceId,
+            user_id: userId,
+            query,
+            result_count: fallbackAllResults.length,
+            search_type: "text_fallback",
+          });
+        if (historyError) {
+          console.error("[Search Fallback] FAILED:", historyError.code, historyError.message);
+        } else {
+          console.log("[Search Fallback] Successfully saved");
+        }
+      } else {
+        console.warn("[Search Fallback] No userId resolved - skipping search history insert");
+      }
+
       return NextResponse.json({
-        results: [
-          ...resultsWithPreviews.map((r: any) => ({
-            ...r,
-            document_id: r.id,
-            similarity: 0.5,
-            search_type: "text",
-            result_type: "document",
-          })),
-          ...linkResults,
-        ],
+        results: fallbackAllResults,
         query,
         search_type: "text_fallback",
-        total: resultsWithPreviews.length + linkResults.length,
+        total: fallbackAllResults.length,
       });
     }
 
@@ -163,24 +254,98 @@ export async function POST(req: NextRequest) {
       start_time: t.start_time,
     }));
     
+    // Search in scratches
+    const { data: scratchSearchResults } = await supabase
+      .from("scratches")
+      .select("id, title, thumbnail, searchable_text, tags, created_at")
+      .eq("workspace_id", workspaceId)
+      .or(`title.ilike.%${query}%,searchable_text.ilike.%${query}%`)
+      .limit(limit);
+    
+    const scratchItems = (scratchSearchResults || []).map((s: any) => ({
+      id: s.id,
+      document_id: s.id,
+      title: s.title || "Untitled Scratch",
+      description: s.searchable_text?.slice(0, 200) || "",
+      thumbnail_path: s.thumbnail,
+      tags: s.tags,
+      similarity: 0.75,
+      search_type: "text",
+      result_type: "scratch",
+      created_at: s.created_at,
+    }));
+    
+    // Search in notes
+    const { data: noteSearchResults } = await supabase
+      .from("notes")
+      .select("id, title, searchable_text, tags, created_at")
+      .eq("workspace_id", workspaceId)
+      .or(`title.ilike.%${query}%,searchable_text.ilike.%${query}%`)
+      .limit(limit);
+    
+    const noteItems = (noteSearchResults || []).map((n: any) => ({
+      id: n.id,
+      document_id: n.id,
+      title: n.title || "Untitled Note",
+      description: n.searchable_text?.slice(0, 200) || "",
+      tags: n.tags,
+      similarity: 0.75,
+      search_type: "text",
+      result_type: "note",
+      created_at: n.created_at,
+    }));
+    
     // Combine and deduplicate link results
     const uniqueLinkResults = linkResults.filter((lr: any, index: number, self: any[]) => 
       index === self.findIndex((t) => t.id === lr.id)
     );
+    
+    // Combine all results
+    const allResults = [
+      ...resultsWithPreviews,
+      ...scratchItems,
+      ...noteItems,
+      ...uniqueLinkResults,
+    ].sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
 
-    // Save search to history
-    await supabase.from("search_history").insert({
-      workspace_id: workspaceId,
-      query,
-      result_count: resultsWithPreviews.length + uniqueLinkResults.length,
-      search_type: searchTypes.join(","),
-    });
+    // Save search to history - ALWAYS include user_id
+    // Delete existing identical query first to prevent duplicates, then insert
+    console.log("[Search] Saving to history - userId:", userId || "null", "workspaceId:", workspaceId, "query:", query);
+
+    if (userId) {
+      // First delete any existing entry with same query to prevent duplicates
+      await supabase
+        .from("search_history")
+        .delete()
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", userId)
+        .eq("query", query);
+      
+      const { data: insertedData, error: historyError } = await supabase
+        .from("search_history")
+        .insert({
+          workspace_id: workspaceId,
+          user_id: userId,
+          query,
+          result_count: allResults.length,
+          search_type: searchTypes.join(","),
+        })
+        .select();
+
+      if (historyError) {
+        console.error("[Search] Failed to save search history:", historyError.code, historyError.message);
+      } else {
+        console.log("[Search] Successfully saved search history:", insertedData);
+      }
+    } else {
+      console.warn("[Search] No userId resolved - skipping search history insert");
+    }
 
     return NextResponse.json({
-      results: [...resultsWithPreviews, ...uniqueLinkResults],
+      results: allResults,
       query,
       search_types: searchTypes,
-      total: resultsWithPreviews.length + uniqueLinkResults.length,
+      total: allResults.length,
       has_semantic: queryEmbedding !== null,
     });
   } catch (error) {
@@ -198,9 +363,13 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseServerClient();
+    const session = await getServerSession(authOptions);
+    const userId = await resolveUserId(req, session);
     const { searchParams } = new URL(req.url);
     const workspaceId = searchParams.get("workspaceId");
+
+    console.log("[Search API GET] workspaceId:", workspaceId);
 
     if (!workspaceId) {
       return NextResponse.json(
@@ -209,13 +378,18 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get recent searches
-    const { data: recentSearches } = await supabase
-      .from("search_history")
-      .select("query, result_count, created_at")
-      .eq("workspace_id", workspaceId)
-      .order("created_at", { ascending: false })
-      .limit(10);
+    // Get recent searches with IDs for deletion
+    const { data: recentSearches, error: searchError } = userId
+      ? await supabase
+          .from("search_history")
+          .select("id, query, result_count, created_at")
+          .eq("workspace_id", workspaceId)
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(20)
+      : { data: [], error: null };
+    
+    console.log("[Search API GET] recentSearches:", recentSearches?.length || 0, "error:", searchError?.message || "none");
 
     // Get popular tags from workspace documents
     const { data: documents } = await supabase
@@ -500,6 +674,54 @@ function deduplicateResults(results: any[]): any[] {
 }
 
 // Helper: Add signed preview URLs from Railway Storage
+/**
+ * DELETE /api/search?id=...
+ * Delete a search history entry
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    const workspaceId = searchParams.get("workspaceId");
+    const clearAll = searchParams.get("clearAll");
+
+    if (clearAll === "true" && workspaceId) {
+      // Clear all search history for workspace
+      const { error } = await supabase
+        .from("search_history")
+        .delete()
+        .eq("workspace_id", workspaceId);
+
+      if (error) {
+        console.error("Failed to clear search history:", error);
+        return NextResponse.json({ error: "Failed to clear history" }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from("search_history")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Failed to delete search history:", error);
+      return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete search history error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 async function addPreviewUrls(supabase: any, results: any[]): Promise<any[]> {
   const storage = getRailwayStorage();
   

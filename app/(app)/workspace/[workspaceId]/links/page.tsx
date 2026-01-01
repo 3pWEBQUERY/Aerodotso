@@ -8,6 +8,10 @@ import { SelectionActionBar } from "@/components/workspace/selection-action-bar"
 import { PageToolbar, ViewMode, SortOption } from "@/components/workspace/page-toolbar";
 import { AnimatedFolder } from "@/components/workspace/animated-folder";
 import { LinkCard } from "@/components/workspace/link-card";
+import { LinkCardList } from "@/components/workspace/link-card-list";
+import { LinkCardCompact } from "@/components/workspace/link-card-compact";
+import { DraggableItem } from "@/components/workspace/draggable-item";
+import { DroppableFolder } from "@/components/workspace/droppable-folder";
 import Link from "next/link";
 import {
   Dialog,
@@ -29,6 +33,7 @@ interface LinkItem {
   thumbnail_url?: string;
   link_type?: string;
   created_at: string;
+  folder_id?: string | null;
 }
 
 // Get badge info for link type
@@ -53,7 +58,7 @@ function getLinkTypeBadge(linkType?: string): { label: string; color: string } {
     case "figma": return { label: "Figma", color: "bg-purple-500" };
     case "notion": return { label: "Notion", color: "bg-gray-900" };
     case "google_doc": return { label: "Google Doc", color: "bg-blue-500" };
-    case "article": return { label: "Article", color: "bg-emerald-600" };
+    case "article": return { label: "Article", color: "bg-[var(--accent-primary)]" };
     case "pdf": return { label: "PDF", color: "bg-red-500" };
     case "image": return { label: "Image", color: "bg-indigo-500" };
     case "audio": return { label: "Audio", color: "bg-violet-500" };
@@ -302,21 +307,75 @@ export default function WorkspaceLinksPage() {
     return sortAsc ? -cmp : cmp;
   });
 
-  const filteredLinks = sortedLinks.filter(link =>
-    link.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    link.url.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Search results state
+  const [searchResults, setSearchResults] = useState<LinkItem[] | null>(null);
 
-  // Handle search (for AI search in future)
-  const handleSearch = () => {
+  // AI Search - auto-trigger with debounce
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim() || !workspaceId) {
+      setSearchResults(null);
+      return;
+    }
+
     setIsSearching(true);
-    setTimeout(() => setIsSearching(false), 300);
-  };
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: query,
+          workspaceId,
+          searchTypes: ["semantic", "text"],
+          limit: 50,
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.results) {
+        // Filter only links from results
+        const linkResults: LinkItem[] = data.results
+          .filter((r: any) => r.result_type === "link")
+          .map((r: any) => ({
+            id: r.document_id,
+            url: r.url || "",
+            title: r.title,
+            description: r.description,
+            thumbnail_url: r.thumbnail_url || r.thumbnailUrl,
+            link_type: r.link_type,
+            created_at: r.created_at || new Date().toISOString(),
+          }));
+        setSearchResults(linkResults);
+      }
+    } catch (error) {
+      console.error("Search failed:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [workspaceId]);
 
-  // Clear search
-  const clearSearch = () => {
-    setSearchQuery("");
-  };
+  // Auto-search with debounce when query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+
+    const debounceTimer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, handleSearch]);
+
+  // Use search results if available, otherwise filter locally
+  const filteredLinks = searchResults !== null 
+    ? searchResults.filter(link => !link.folder_id)
+    : sortedLinks.filter(link =>
+        !link.folder_id && (
+          link.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          link.url.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      );
 
   // Selection handlers
   const toggleLinkSelection = (linkId: string, e: React.MouseEvent) => {
@@ -354,6 +413,23 @@ export default function WorkspaceLinksPage() {
            url.includes("twitch.tv");
   };
 
+  // Handle drag-and-drop to folder
+  const handleDropToFolder = async (folderId: string, itemId: string, itemType: string) => {
+    if (itemType !== "link") return;
+    try {
+      await fetch(`/api/links/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder_id: folderId }),
+      });
+      setLinks(prev => prev.map(l => 
+        l.id === itemId ? { ...l, folder_id: folderId } : l
+      ));
+    } catch (error) {
+      console.error("Failed to move link to folder:", error);
+    }
+  };
+
   return (
     <>
       <div className="flex-1 min-w-0 overflow-y-auto p-6">
@@ -362,7 +438,7 @@ export default function WorkspaceLinksPage() {
           pageType="links"
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
-          onSearch={handleSearch}
+          onSearch={() => handleSearch(searchQuery)}
           isSearching={isSearching}
           sortBy={sortBy}
           onSortByChange={setSortBy}
@@ -379,7 +455,7 @@ export default function WorkspaceLinksPage() {
             <button
               type="button"
               onClick={() => setDialogOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
+              className="flex items-center gap-2 px-3 py-1.5 bg-[var(--accent-primary)] text-white text-sm rounded-lg hover:bg-[var(--accent-primary-hover)]"
             >
               <Plus className="h-4 w-4" />
               Paste Link
@@ -394,30 +470,88 @@ export default function WorkspaceLinksPage() {
           </div>
         ) : links.length === 0 ? (
           <EmptyState onPasteLink={() => setDialogOpen(true)} />
-        ) : filteredLinks.length === 0 ? (
+        ) : filteredLinks.length === 0 && folders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32">
             <p className="text-muted-foreground">No links found for &quot;{searchQuery}&quot;</p>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-4 items-start">
-            {filteredLinks.map((link) => (
-              <LinkCard
-                key={link.id}
-                id={link.id}
-                url={link.url}
-                title={link.title}
-                thumbnailUrl={link.thumbnail_url}
-                linkType={link.link_type}
-                isSelected={selectedLinks.has(link.id)}
-                onCheckboxClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleLinkSelection(link.id, e);
-                }}
-                workspaceId={workspaceId || ""}
-              />
-            ))}
-          </div>
+          <>
+            {/* GRID VIEW */}
+            {viewMode === "grid" && (
+              <div className="flex flex-wrap gap-4 items-start">
+                {/* Folders first - droppable */}
+                {folders.map((folder) => {
+                  const folderLinks = links.filter((l: any) => l.folder_id === folder.id);
+                  return (
+                    <DroppableFolder
+                      key={`folder-${folder.id}`}
+                      folderId={folder.id}
+                      folderName={folder.name}
+                      workspaceId={workspaceId || ""}
+                      fileCount={folderLinks.length}
+                      previewFiles={folderLinks.slice(0, 3).map((l: any) => ({ 
+                        type: "link", 
+                        name: l.title, 
+                        previewUrl: l.thumbnail_url 
+                      }))}
+                      onDrop={handleDropToFolder}
+                      acceptTypes={["link"]}
+                    />
+                  );
+                })}
+                {/* Links - draggable */}
+                {filteredLinks.map((link) => (
+                  <DraggableItem key={link.id} itemId={link.id} itemType="link">
+                    <LinkCard
+                      id={link.id}
+                      url={link.url}
+                      title={link.title}
+                      thumbnailUrl={link.thumbnail_url}
+                      linkType={link.link_type}
+                      isSelected={selectedLinks.has(link.id)}
+                      onCheckboxClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleLinkSelection(link.id, e);
+                      }}
+                      workspaceId={workspaceId || ""}
+                    />
+                  </DraggableItem>
+                ))}
+              </div>
+            )}
+
+            {/* LIST VIEW */}
+            {viewMode === "list" && (
+              <div className="space-y-2">
+                {filteredLinks.map((link) => (
+                  <LinkCardList
+                    key={link.id}
+                    link={link}
+                    workspaceId={workspaceId || ""}
+                    isSelected={selectedLinks.has(link.id)}
+                    onSelect={() => toggleLinkSelection(link.id, {} as React.MouseEvent)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* COMPACT VIEW */}
+            {viewMode === "compact" && (
+              <div className="space-y-0">
+                {filteredLinks.map((link, i) => (
+                  <div key={link.id} className={i > 0 ? "mt-1" : ""}>
+                    <LinkCardCompact
+                      link={link}
+                      workspaceId={workspaceId || ""}
+                      isSelected={selectedLinks.has(link.id)}
+                      onSelect={() => toggleLinkSelection(link.id, {} as React.MouseEvent)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -437,7 +571,7 @@ export default function WorkspaceLinksPage() {
                 value={linkInput}
                 onChange={(e) => setLinkInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !isLoadingPreview && handlePasteLink()}
-                className="w-full pl-10 pr-10 py-3 border-2 border-emerald-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 overflow-hidden text-ellipsis"
+                className="w-full pl-10 pr-10 py-3 border-2 border-[var(--accent-primary)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 overflow-hidden text-ellipsis"
               />
               {linkInput && (
                 <button
@@ -508,7 +642,7 @@ export default function WorkspaceLinksPage() {
               type="button"
               onClick={handlePasteLink}
               disabled={!linkInput.trim() || isSubmitting || isLoadingPreview}
-              className="px-4 py-2 text-sm bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              className="px-4 py-2 text-sm bg-[var(--accent-primary-hover)] hover:bg-[var(--accent-primary-hover)] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
             >
               {isSubmitting ? (
                 <>

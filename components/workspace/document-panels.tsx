@@ -120,7 +120,7 @@ export function DocumentPanels({ documents, workspaceId, openPanels, closePanel,
           >
             {/* Resize Handle */}
             <div
-              className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-emerald-500/50 z-10"
+              className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--accent-primary)]/100/50 z-10"
               onMouseDown={() => handleMouseDown(panel.id)}
             />
             

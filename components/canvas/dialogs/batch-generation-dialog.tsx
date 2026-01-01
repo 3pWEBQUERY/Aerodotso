@@ -125,8 +125,8 @@ export function BatchGenerationDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <Grid3X3 className="h-5 w-5 text-emerald-600" />
+            <div className="w-10 h-10 rounded-xl bg-[var(--accent-primary)]/20 flex items-center justify-center">
+              <Grid3X3 className="h-5 w-5 text-[var(--accent-primary-light)]" />
             </div>
             <div>
               <h2 className="text-lg font-semibold">Batch Generation</h2>
@@ -166,7 +166,7 @@ export function BatchGenerationDialog({
               placeholder="A serene mountain landscape at sunset&#10;A futuristic city with flying cars&#10;An abstract painting in vibrant colors"
               rows={8}
               disabled={isGenerating}
-              className="w-full px-3 py-2 border rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-gray-50"
+              className="w-full px-3 py-2 border rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)] disabled:bg-gray-50"
             />
           </div>
 
@@ -174,7 +174,7 @@ export function BatchGenerationDialog({
           {isGenerating && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-emerald-600">
+                <div className="flex items-center gap-2 text-[var(--accent-primary-light)]">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Generating...</span>
                 </div>
@@ -184,7 +184,7 @@ export function BatchGenerationDialog({
               </div>
               <div className="h-2 bg-gray-100 rounded-xl overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 transition-all duration-300"
+                  className="h-full bg-[var(--accent-primary)]/100 transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -195,7 +195,7 @@ export function BatchGenerationDialog({
           {(results.length > 0 || errors.length > 0) && !isGenerating && (
             <div className="space-y-2">
               {results.length > 0 && (
-                <div className="flex items-center gap-2 text-emerald-600 text-sm">
+                <div className="flex items-center gap-2 text-[var(--accent-primary-light)] text-sm">
                   <CheckCircle2 className="h-4 w-4" />
                   <span>{results.length} images generated successfully</span>
                 </div>
@@ -256,7 +256,7 @@ export function BatchGenerationDialog({
             type="button"
             onClick={handleGenerate}
             disabled={promptList.length === 0 || isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--accent-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? (
               <>

@@ -49,23 +49,25 @@ function DocumentNode({ id, data, selected }: NodeProps<DocumentNodeData>) {
       className={`
         relative bg-white rounded-xl border shadow-sm overflow-hidden
         transition-all duration-200 cursor-pointer
-        ${selected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-gray-200 hover:border-gray-300"}
+        ${selected ? "ring-2 ring-[var(--accent-primary)] border-[var(--accent-primary)]" : "border-gray-200 hover:border-gray-300"}
       `}
       style={{ width: 240, minHeight: 160 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onDoubleClick={handleOpen}
     >
-      {/* Connection Handles */}
+      {/* Connection Handles - outside card when selected */}
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white"
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-left-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-white"
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-right-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
 
       {/* Document Preview Area */}

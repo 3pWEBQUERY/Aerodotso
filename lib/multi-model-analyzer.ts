@@ -14,18 +14,16 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Model costs per 1M tokens (approximate)
 const MODEL_COSTS = {
-  "claude-sonnet-4-5-20250929": { input: 3, output: 15 },
-  "claude-haiku-4-5-20251001": { input: 0.8, output: 4 },
-  "gemini-2.5-pro-preview-06-05": { input: 1.25, output: 5 },
-  "gemini-2.0-flash": { input: 0.075, output: 0.3 },
+  "gemini-3-pro-preview": { input: 1.25, output: 5 },
+  "gemini-3-flash-preview": { input: 0.075, output: 0.3 },
 } as const;
 
 type ModelId = keyof typeof MODEL_COSTS;
 
 // Model quality tiers
 const QUALITY_TIERS = {
-  premium: ["claude-sonnet-4-5-20250929", "gemini-2.5-pro-preview-06-05"],
-  standard: ["claude-haiku-4-5-20251001", "gemini-2.0-flash"],
+  premium: ["gemini-3-pro-preview"],
+  standard: ["gemini-3-flash-preview"],
 } as const;
 
 export interface AnalysisResult {
@@ -132,38 +130,45 @@ async function withRetry<T>(
 
 /**
  * Intelligent model selection based on image characteristics
+ * Only uses Gemini models: gemini-3-pro-preview and gemini-3-flash-preview
  */
 function selectModel(
   imageSize: number,
   mimeType: string,
   quality: "premium" | "standard" = "standard"
-): { claude: ModelId; gemini: ModelId } {
+): { gemini: ModelId } {
   // Use premium models for larger/complex images
   const usePremium = quality === "premium" || imageSize > 2 * 1024 * 1024;
   
   if (usePremium) {
     return {
-      claude: "claude-sonnet-4-5-20250929",
-      gemini: "gemini-2.5-pro-preview-06-05",
+      gemini: "gemini-3-pro-preview",
     };
   }
   
   return {
-    claude: "claude-haiku-4-5-20251001",
-    gemini: "gemini-2.0-flash",
+    gemini: "gemini-3-flash-preview",
   };
 }
 
 /**
  * The ultra-detailed analysis prompt for precise search
  */
-const ANALYSIS_PROMPT = `You are an expert image analyst. Analyze this image with EXTREME DETAIL for search indexing.
+const ANALYSIS_PROMPT = `You are an expert image analyst with deep knowledge of brands, products, and fashion. Analyze this image with EXTREME DETAIL for search indexing.
 
-Your goal: Enable precise searches like "red lingerie", "blue dress at beach", "person holding coffee".
+Your goal: Enable precise searches like "Apple AirPods Max", "Nike Air Jordan 1", "Louis Vuitton bag", "red lingerie".
+
+CRITICAL: Identify specific BRANDS and PRODUCT MODELS whenever possible:
+- Tech: Apple AirPods Max, Apple Watch Ultra, Samsung Galaxy Buds, Sony WH-1000XM5, Bose QuietComfort
+- Phones: iPhone 15 Pro, Samsung Galaxy S24, Google Pixel 8
+- Fashion: Nike Air Force 1, Adidas Yeezy, Gucci, Prada, Louis Vuitton, Chanel
+- Cars: BMW M3, Mercedes AMG, Porsche 911, Tesla Model S
+- Watches: Rolex Submariner, Apple Watch, Omega Seamaster
+- Other: MacBook Pro, iPad Pro, PlayStation 5, Nintendo Switch
 
 Output a JSON object with this EXACT structure:
 {
-  "description": "A comprehensive 2-3 sentence description of the image",
+  "description": "A comprehensive 2-3 sentence description including any identified brands/products",
   "subjects": [
     {
       "type": "person|animal|object|scene",
@@ -175,16 +180,27 @@ Output a JSON object with this EXACT structure:
   "colors": [
     {
       "color": "exact color name",
-      "shade": "specific shade (e.g., 'burgundy red', 'navy blue', 'pastel pink')",
+      "shade": "specific shade (e.g., 'burgundy red', 'navy blue', 'space gray', 'silver')",
       "location": "what object/element has this color",
       "prominence": "dominant|secondary|accent"
     }
   ],
   "objects": [
     {
-      "name": "object name",
+      "name": "SPECIFIC product name with brand if identifiable (e.g., 'Apple AirPods Max' not just 'headphones')",
+      "brand": "brand name if identifiable",
+      "model": "specific model if identifiable",
       "description": "detailed description",
-      "attributes": ["material", "size", "condition", "style"]
+      "attributes": ["material", "size", "condition", "style", "color variant"]
+    }
+  ],
+  "products": [
+    {
+      "brand": "brand name (Apple, Nike, Samsung, etc.)",
+      "product": "product name (AirPods Max, Air Force 1, Galaxy Watch)",
+      "model": "specific model/variant if visible",
+      "color": "color variant (Space Gray, Midnight, etc.)",
+      "category": "electronics|fashion|automotive|accessories|other"
     }
   ],
   "setting": {
@@ -197,18 +213,19 @@ Output a JSON object with this EXACT structure:
   "style": ["artistic style, photography style"],
   "clothing": [
     {
-      "type": "specific clothing type (e.g., 'lingerie set', 'cocktail dress', 't-shirt')",
+      "type": "specific clothing type",
+      "brand": "brand if identifiable (Nike, Adidas, Zara, H&M, etc.)",
       "color": "primary color",
-      "shade": "specific shade (e.g., 'cherry red', 'wine red', 'crimson')",
+      "shade": "specific shade",
       "material": "fabric if visible",
       "style": "style descriptor",
-      "details": ["lace trim", "v-neck", "sleeveless", etc.]
+      "details": ["lace trim", "v-neck", "sleeveless", "logo visible", etc.]
     }
   ],
   "text": [
     {
       "content": "exact text visible",
-      "type": "title|label|watermark|sign|logo",
+      "type": "title|label|watermark|sign|logo|brand",
       "location": "where in image"
     }
   ],
@@ -218,10 +235,13 @@ Output a JSON object with this EXACT structure:
   "quality": "image quality assessment"
 }
 
-BE EXTREMELY SPECIFIC about colors and clothing:
-- Don't just say "red" - say "burgundy red", "cherry red", "crimson", "scarlet", "wine red"
-- For clothing, include EVERY visible detail: cut, neckline, length, material, pattern
-- If it's lingerie, specify: bra type, panty type, set or separate, lace/satin/mesh
+BE EXTREMELY SPECIFIC:
+- ALWAYS try to identify brands and exact product models
+- Don't say "headphones" - say "Apple AirPods Max in Space Gray" or "Sony WH-1000XM5"
+- Don't say "sneakers" - say "Nike Air Jordan 1 Retro High" or "Adidas Ultraboost"
+- Don't say "watch" - say "Apple Watch Ultra" or "Rolex Submariner"
+- For colors, use specific shades: "burgundy red", "space gray", "midnight blue"
+- For clothing, include brand if visible and EVERY detail
 
 Output ONLY the JSON, no markdown, no explanation.`;
 
@@ -339,9 +359,9 @@ async function analyzeWithGemini(
   }
 
   const startTime = Date.now();
-  const geminiModel = model === "gemini-2.5-pro-preview-06-05" 
-    ? "gemini-2.5-pro-preview-06-05" 
-    : "gemini-2.0-flash";
+  const geminiModel = model === "gemini-3-pro-preview" 
+    ? "gemini-3-pro-preview" 
+    : "gemini-3-flash-preview";
 
   try {
     return await withRetry(async () => {
@@ -357,7 +377,7 @@ async function analyzeWithGemini(
                 { inline_data: { mime_type: mimeType, data: imageBase64 } }
               ]
             }],
-            generationConfig: { maxOutputTokens: 2000 }
+            generationConfig: { maxOutputTokens: 4096 }
           }),
         }
       );
@@ -370,9 +390,58 @@ async function analyzeWithGemini(
       const json = await response.json();
       const content = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
       
-      // Clean and parse JSON
-      const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const parsed = JSON.parse(cleanContent);
+      // Clean and parse JSON with robust error handling
+      let cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      
+      // Try to parse, with fallback for truncated JSON
+      let parsed: any;
+      try {
+        parsed = JSON.parse(cleanContent);
+      } catch (parseError) {
+        // Try to repair truncated JSON by closing open structures
+        console.log("Attempting to repair truncated JSON...");
+        let repairedJson = cleanContent;
+        
+        // Count open brackets and braces
+        const openBraces = (repairedJson.match(/{/g) || []).length;
+        const closeBraces = (repairedJson.match(/}/g) || []).length;
+        const openBrackets = (repairedJson.match(/\[/g) || []).length;
+        const closeBrackets = (repairedJson.match(/]/g) || []).length;
+        
+        // Remove trailing incomplete string/value
+        repairedJson = repairedJson.replace(/,\s*"[^"]*$/, '');
+        repairedJson = repairedJson.replace(/,\s*$/, '');
+        repairedJson = repairedJson.replace(/:\s*"[^"]*$/, ': ""');
+        
+        // Close missing brackets and braces
+        for (let i = 0; i < openBrackets - closeBrackets; i++) {
+          repairedJson += ']';
+        }
+        for (let i = 0; i < openBraces - closeBraces; i++) {
+          repairedJson += '}';
+        }
+        
+        try {
+          parsed = JSON.parse(repairedJson);
+          console.log("JSON repair successful");
+        } catch {
+          // If repair fails, create minimal fallback
+          console.log("JSON repair failed, using fallback");
+          parsed = {
+            description: "Image analysis incomplete",
+            subjects: [],
+            colors: [],
+            objects: [],
+            setting: { type: "unknown", location: "", background: "", environment: [] },
+            mood: [],
+            style: [],
+            clothing: [],
+            text: [],
+            actions: [],
+          };
+        }
+      }
+      
       const processingTime = Date.now() - startTime;
 
       return {
@@ -395,7 +464,7 @@ async function analyzeWithGemini(
         searchableText: generateSearchableText(parsed),
         modelUsed: model,
         processingTimeMs: processingTime,
-        confidence: 0.9,
+        confidence: parsed.description ? 0.9 : 0.5,
       };
     });
   } catch (error) {
@@ -416,10 +485,11 @@ function generateTagsFromAnalysis(analysis: any): string[] {
     tags.add(color.shade?.toLowerCase());
   }
 
-  // Add clothing types and colors
+  // Add clothing types, brands, and colors
   for (const clothing of analysis.clothing || []) {
     tags.add(clothing.type?.toLowerCase());
     tags.add(clothing.color?.toLowerCase());
+    if (clothing.brand) tags.add(clothing.brand.toLowerCase());
     if (clothing.shade) tags.add(clothing.shade.toLowerCase());
     if (clothing.material) tags.add(clothing.material.toLowerCase());
     if (clothing.style) tags.add(clothing.style.toLowerCase());
@@ -431,6 +501,40 @@ function generateTagsFromAnalysis(analysis: any): string[] {
     if (clothing.shade && clothing.type) {
       tags.add(`${clothing.shade} ${clothing.type}`.toLowerCase());
     }
+    if (clothing.brand && clothing.type) {
+      tags.add(`${clothing.brand} ${clothing.type}`.toLowerCase());
+    }
+  }
+
+  // Add products with brands (CRITICAL for specific searches)
+  for (const product of analysis.products || []) {
+    if (product.brand) tags.add(product.brand.toLowerCase());
+    if (product.product) tags.add(product.product.toLowerCase());
+    if (product.model) tags.add(product.model.toLowerCase());
+    if (product.category) tags.add(product.category.toLowerCase());
+    
+    // Combined brand + product tags for precise search
+    if (product.brand && product.product) {
+      tags.add(`${product.brand} ${product.product}`.toLowerCase());
+    }
+    if (product.brand && product.product && product.model) {
+      tags.add(`${product.brand} ${product.product} ${product.model}`.toLowerCase());
+    }
+    if (product.brand && product.product && product.color) {
+      tags.add(`${product.brand} ${product.product} ${product.color}`.toLowerCase());
+    }
+  }
+
+  // Add objects with brands
+  for (const obj of analysis.objects || []) {
+    tags.add(obj.name?.toLowerCase());
+    if (obj.brand) tags.add(obj.brand.toLowerCase());
+    if (obj.model) tags.add(obj.model.toLowerCase());
+    
+    // Combined tags
+    if (obj.brand && obj.name) {
+      tags.add(`${obj.brand} ${obj.name}`.toLowerCase());
+    }
   }
 
   // Add subjects
@@ -439,11 +543,6 @@ function generateTagsFromAnalysis(analysis: any): string[] {
     for (const attr of subject.attributes || []) {
       tags.add(attr.toLowerCase());
     }
-  }
-
-  // Add objects
-  for (const obj of analysis.objects || []) {
-    tags.add(obj.name?.toLowerCase());
   }
 
   // Add setting
@@ -465,10 +564,17 @@ function generateTagsFromAnalysis(analysis: any): string[] {
     tags.add(action.toLowerCase());
   }
 
+  // Add text/logos (brand visibility)
+  for (const text of analysis.text || []) {
+    if (text.type === 'brand' || text.type === 'logo') {
+      tags.add(text.content?.toLowerCase());
+    }
+  }
+
   // Clean up and return
   return Array.from(tags)
     .filter(tag => tag && tag.length > 1 && tag.length < 50)
-    .slice(0, 50);
+    .slice(0, 80);
 }
 
 /**
@@ -482,9 +588,33 @@ function generateSearchableText(analysis: any): string {
     parts.push(analysis.description);
   }
 
-  // Clothing details (crucial for precise search)
+  // Products with brands (CRITICAL for precise search like "Apple AirPods Max")
+  for (const product of analysis.products || []) {
+    const productDesc = [
+      product.brand,
+      product.product,
+      product.model,
+      product.color,
+      product.category
+    ].filter(Boolean).join(" ");
+    if (productDesc) parts.push(productDesc);
+  }
+
+  // Objects with brands
+  for (const obj of analysis.objects || []) {
+    const objDesc = [
+      obj.brand,
+      obj.model,
+      obj.name,
+      obj.description
+    ].filter(Boolean).join(" ");
+    if (objDesc) parts.push(objDesc);
+  }
+
+  // Clothing details with brands
   for (const clothing of analysis.clothing || []) {
     const clothingDesc = [
+      clothing.brand,
       clothing.shade || clothing.color,
       clothing.material,
       clothing.style,
@@ -507,6 +637,11 @@ function generateSearchableText(analysis: any): string {
   // Setting
   if (analysis.setting) {
     parts.push(`${analysis.setting.type} ${analysis.setting.location} ${analysis.setting.background}`);
+  }
+
+  // Text/logos visible
+  for (const text of analysis.text || []) {
+    if (text.content) parts.push(text.content);
   }
 
   // Actions
@@ -534,31 +669,16 @@ export async function analyzeImage(
   const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
   const imageSize = imageBuffer.byteLength;
 
-  // Select models
+  // Select models (Gemini only)
   const models = selectModel(imageSize, mimeType, quality);
 
   let result: AnalysisResult | null = null;
 
-  // Try preferred provider first, then fallback
-  if (preferredProvider === "claude" || preferredProvider === "auto") {
-    result = await analyzeWithClaude(base64Image, mimeType, models.claude);
-  }
-
-  if (!result && (preferredProvider === "gemini" || preferredProvider === "auto")) {
-    result = await analyzeWithGemini(base64Image, mimeType, models.gemini);
-  }
-
-  // If still no result, try the other provider
-  if (!result) {
-    if (preferredProvider === "claude") {
-      result = await analyzeWithGemini(base64Image, mimeType, models.gemini);
-    } else {
-      result = await analyzeWithClaude(base64Image, mimeType, models.claude);
-    }
-  }
+  // Use Gemini for analysis
+  result = await analyzeWithGemini(base64Image, mimeType, models.gemini);
 
   if (!result) {
-    throw new Error("All analysis models failed");
+    throw new Error("Gemini analysis failed");
   }
 
   return result;

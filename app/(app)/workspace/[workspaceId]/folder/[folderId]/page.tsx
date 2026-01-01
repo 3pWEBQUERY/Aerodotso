@@ -184,14 +184,14 @@ export default function FolderPage() {
                 <div key={doc.id} className="w-44 hover:shadow-lg transition-shadow cursor-pointer relative group">
                   {/* Selection checkbox */}
                   <button type="button" onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleDocSelection(doc.id); }}
-                    className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${selectedDocs.has(doc.id) ? "bg-emerald-600 border-emerald-600 text-white opacity-100" : "bg-white/80 border-gray-300 hover:border-emerald-500 opacity-0 group-hover:opacity-100"}`}>
+                    className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${selectedDocs.has(doc.id) ? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white opacity-100" : "bg-white/80 border-gray-300 hover:border-[var(--accent-primary)] opacity-0 group-hover:opacity-100"}`}>
                     {selectedDocs.has(doc.id) && <Check className="h-4 w-4" />}
                   </button>
                   
                   {/* Clickable link to document page */}
                   <Link href={`/workspace/${workspaceId}/document/${doc.id}`}>
                     {doc.mime_type?.startsWith("image/") && doc.previewUrl ? (
-                      <div className={`h-56 rounded-xl overflow-hidden bg-gray-100 relative ${selectedDocs.has(doc.id) ? "ring-2 ring-emerald-500" : ""}`}>
+                      <div className={`h-56 rounded-xl overflow-hidden bg-gray-100 relative ${selectedDocs.has(doc.id) ? "ring-2 ring-[var(--accent-primary)]" : ""}`}>
                         <img src={doc.previewUrl} alt={doc.title} className="w-full h-full object-cover" />
                         <div className="absolute bottom-0 left-0 right-0 p-2">
                           <div className="bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1.5 flex items-center gap-1.5">
@@ -201,7 +201,7 @@ export default function FolderPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className={`h-56 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center border relative ${selectedDocs.has(doc.id) ? "ring-2 ring-emerald-500" : ""}`}>
+                      <div className={`h-56 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center border relative ${selectedDocs.has(doc.id) ? "ring-2 ring-[var(--accent-primary)]" : ""}`}>
                         {doc.mime_type === "application/pdf" ? <FileText className="h-12 w-12 text-red-500" /> : <File className="h-12 w-12 text-gray-400" />}
                         <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-2.5 rounded-b-xl border-t">
                           <div className="flex items-center gap-1.5">
@@ -220,31 +220,31 @@ export default function FolderPage() {
 
         {selectedDocs.size > 0 && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-            <div className="flex items-center gap-1 bg-white border rounded-xl shadow-lg px-2 py-1.5">
-              <span className="px-3 py-1.5 text-sm font-medium bg-gray-100 rounded-lg">{selectedDocs.size} selected</span>
-              <div className="w-px h-6 bg-gray-200 mx-1" />
+            <div className="flex items-center gap-1 border border-[var(--workspace-sidebar-border)] rounded-xl shadow-lg px-2 py-1.5" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+              <span className="px-3 py-1.5 text-sm font-medium bg-[var(--workspace-sidebar-muted)] text-[var(--workspace-sidebar-foreground)] rounded-lg">{selectedDocs.size} selected</span>
+              <div className="w-px h-6 bg-[var(--workspace-sidebar-border)] mx-1" />
               <div className="relative">
-                <button type="button" onClick={() => setShowMovePopover(!showMovePopover)} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-100 rounded-lg">
+                <button type="button" onClick={() => setShowMovePopover(!showMovePopover)} className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--workspace-sidebar-foreground)] hover:bg-[var(--workspace-sidebar-muted)] rounded-lg">
                   <Move className="h-4 w-4" />Move
                 </button>
                 {showMovePopover && (
-                  <div className="absolute bottom-full left-0 mb-2 w-48 bg-white border rounded-xl shadow-lg py-2">
-                    <button type="button" onClick={() => moveToFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 text-left">
+                  <div className="absolute bottom-full left-0 mb-2 w-48 border border-[var(--workspace-sidebar-border)] rounded-xl shadow-lg py-2" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+                    <button type="button" onClick={() => moveToFolder(null)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--workspace-sidebar-foreground)] hover:bg-[var(--workspace-sidebar-muted)] text-left">
                       <Home className="h-4 w-4" />Root (no folder)
                     </button>
                     {allFolders.filter(f => f.id !== folderId).map((f) => (
-                      <button key={f.id} type="button" onClick={() => moveToFolder(f.id)} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 text-left">
+                      <button key={f.id} type="button" onClick={() => moveToFolder(f.id)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--workspace-sidebar-foreground)] hover:bg-[var(--workspace-sidebar-muted)] text-left">
                         <FolderClosed className="h-4 w-4 text-amber-500" />{f.name}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-              <button type="button" className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-100 rounded-lg"><Star className="h-4 w-4" />Star</button>
-              <button type="button" className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-100 rounded-lg"><Share2 className="h-4 w-4" />Share</button>
-              <button type="button" onClick={deleteSelected} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-red-50 text-red-600 rounded-lg"><Trash2 className="h-4 w-4" />Delete</button>
-              <div className="w-px h-6 bg-gray-200 mx-1" />
-              <button type="button" onClick={clearSelection} className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="h-4 w-4" /></button>
+              <button type="button" className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--workspace-sidebar-foreground)] hover:bg-amber-900/30 hover:text-amber-400 rounded-lg"><Star className="h-4 w-4" />Star</button>
+              <button type="button" className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--workspace-sidebar-foreground)] hover:bg-[var(--workspace-sidebar-muted)] rounded-lg"><Share2 className="h-4 w-4" />Share</button>
+              <button type="button" onClick={deleteSelected} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-red-900/30 text-red-400 rounded-lg"><Trash2 className="h-4 w-4" />Delete</button>
+              <div className="w-px h-6 bg-[var(--workspace-sidebar-border)] mx-1" />
+              <button type="button" onClick={clearSelection} className="p-1.5 text-[var(--workspace-sidebar-foreground)] hover:bg-[var(--workspace-sidebar-muted)] rounded-lg"><X className="h-4 w-4" /></button>
             </div>
           </div>
         )}

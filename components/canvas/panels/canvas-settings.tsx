@@ -90,7 +90,7 @@ export function CanvasSettings({ isOpen, onClose }: CanvasSettingsProps) {
                 type="checkbox"
                 checked={settings.showGrid}
                 onChange={(e) => updateSettings({ showGrid: e.target.checked })}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                className="rounded border-gray-300 text-[var(--accent-primary-light)] focus:ring-[var(--accent-primary)]"
               />
             </label>
 
@@ -103,7 +103,7 @@ export function CanvasSettings({ isOpen, onClose }: CanvasSettingsProps) {
                 type="checkbox"
                 checked={settings.snapToGrid}
                 onChange={(e) => updateSettings({ snapToGrid: e.target.checked })}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                className="rounded border-gray-300 text-[var(--accent-primary-light)] focus:ring-[var(--accent-primary)]"
               />
             </label>
 
@@ -112,7 +112,7 @@ export function CanvasSettings({ isOpen, onClose }: CanvasSettingsProps) {
               <select
                 value={settings.gridSize}
                 onChange={(e) => updateSettings({ gridSize: Number(e.target.value) })}
-                className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20"
               >
                 <option value={8}>8px</option>
                 <option value={16}>16px</option>
@@ -138,7 +138,7 @@ export function CanvasSettings({ isOpen, onClose }: CanvasSettingsProps) {
                 type="checkbox"
                 checked={settings.showMinimap}
                 onChange={(e) => updateSettings({ showMinimap: e.target.checked })}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                className="rounded border-gray-300 text-[var(--accent-primary-light)] focus:ring-[var(--accent-primary)]"
               />
             </label>
 

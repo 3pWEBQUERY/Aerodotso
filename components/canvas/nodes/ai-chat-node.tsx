@@ -26,7 +26,7 @@ const AI_MODELS: { id: AIModel; name: string; icon: string }[] = [
   { id: "claude-opus-4", name: "Claude Opus 4", icon: "🟣" },
   { id: "gpt-4o", name: "GPT-4o", icon: "🟢" },
   { id: "gpt-4-turbo", name: "GPT-4 Turbo", icon: "🟢" },
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", icon: "🔵" },
+  { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", icon: "🔵" },
 ];
 
 function AIChatNode({ id, data, selected }: NodeProps<AIChatNodeData>) {
@@ -148,18 +148,18 @@ function AIChatNode({ id, data, selected }: NodeProps<AIChatNodeData>) {
         setShowModelDropdown(false);
       }}
     >
-      {/* Connection Handles */}
+      {/* Connection Handles - outside card when selected */}
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white"
-        style={{ top: 30 }}
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-left-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-white"
-        style={{ top: 30 }}
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-right-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
 
       {/* Header */}

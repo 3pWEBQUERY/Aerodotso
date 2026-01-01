@@ -138,21 +138,23 @@ function SocialPostNode({ id, data, selected }: NodeProps<SocialPostNodeData>) {
     <div
       className={`
         relative rounded-xl overflow-hidden transition-all duration-200
-        ${selected ? "ring-2 ring-emerald-500 shadow-lg shadow-emerald-500/20" : ""}
+        ${selected ? "ring-2 ring-[var(--accent-primary)] shadow-lg shadow-[var(--accent-primary)]/20" : ""}
       `}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Connection Handles */}
+      {/* Connection Handles - outside card when selected */}
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white"
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-left-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-white"
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-right-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
 
       {/* Node Controls (visible on hover) */}

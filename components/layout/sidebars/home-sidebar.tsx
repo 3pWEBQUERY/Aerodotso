@@ -212,8 +212,8 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
   };
 
   return (
-    <aside className="w-64 border-r pr-3 text-sm flex flex-col bg-background">
-      <header className="flex items-center justify-between px-2 py-2 border-b relative z-10">
+    <aside className="w-64 rounded-xl text-sm flex flex-col border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+      <header className="flex items-center justify-between px-2 py-2 border-b border-[var(--workspace-sidebar-border)] relative z-10 text-[var(--workspace-sidebar-foreground)]">
         {isEditing ? (
           <input
             ref={inputRef}
@@ -222,13 +222,13 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
             onChange={(e) => setEditName(e.target.value)}
             onBlur={saveWorkspaceName}
             onKeyDown={handleKeyDown}
-            className="font-medium bg-transparent border-b border-emerald-500 outline-none w-full"
+            className="font-medium bg-transparent border-b border-[var(--accent-primary)] outline-none w-full text-[var(--workspace-sidebar-foreground)]"
           />
         ) : (
           <button
             type="button"
             onClick={startEditing}
-            className="font-medium hover:text-emerald-700 flex items-center gap-1 group cursor-pointer text-left"
+            className="font-medium hover:text-[var(--accent-primary)] flex items-center gap-1 group cursor-pointer text-left"
           >
             <span>{workspaceName}</span>
             <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
@@ -239,7 +239,7 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
       <div className="flex-1 overflow-y-auto px-2 pt-2 space-y-3">
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)]"
         >
           <Home className="h-3.5 w-3.5" />
           <span className="truncate">{workspaceName}</span>
@@ -248,14 +248,14 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
         {/* Starred section */}
         {starredDocs.length > 0 && (
           <div className="mt-1">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-1">
               Starred
             </p>
             {starredDocs.slice(0, 5).map((doc) => (
               <Link
                 key={doc.id}
                 href={`/workspace/${workspaceId}/document/${doc.id}`}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)]"
               >
                 <Star className="h-3 w-3 text-amber-500 flex-shrink-0" />
                 <span className="truncate max-w-[140px]">{doc.title}</span>
@@ -266,7 +266,7 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
 
         {/* Workspace section */}
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+          <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-1">
             Workspace
           </p>
 
@@ -275,7 +275,7 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
             <Link
               key={folder.id}
               href={`/workspace/${workspaceId}/folder/${folder.id}`}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)]"
             >
               <FolderClosed className="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
               <span className="truncate max-w-[140px]">{folder.name}</span>
@@ -286,11 +286,11 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
           {recentItems.map((item) => (
             <div
               key={`${item.type}-${item.id}`}
-              className="group flex items-center rounded-md hover:bg-muted mt-0.5 overflow-hidden"
+              className="group flex items-center rounded-md hover:bg-[var(--workspace-sidebar-muted)] mt-0.5 overflow-hidden"
             >
               <Link
                 href={item.href}
-                className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground"
+                className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-[var(--workspace-sidebar-muted-foreground)]"
               >
                 {item.type === "note" && (
                   <StickyNote className="h-3.5 w-3.5 flex-shrink-0" />
@@ -316,7 +316,7 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
                     // Copy link
                     navigator.clipboard.writeText(`${window.location.origin}${item.href}`);
                   }}
-                  className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                  className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                   title="Copy Link"
                 >
                   <Copy className="h-3 w-3" />
@@ -338,7 +338,7 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
                       console.error("Failed to delete:", error);
                     }
                   }}
-                  className="p-1 hover:bg-red-100 rounded text-gray-500 hover:text-red-600"
+                  className="p-1 hover:bg-red-500/20 rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-red-400"
                   title="Delete"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -348,17 +348,13 @@ export function HomeSidebar({ workspaceId }: HomeSidebarProps) {
           ))}
 
           {rootFolders.length === 0 && recentItems.length === 0 && (
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-xs text-[var(--workspace-sidebar-muted-foreground)] mt-2">
               No content yet
             </p>
           )}
         </div>
       </div>
 
-      <div className="border-t px-2 py-2 text-xs text-muted-foreground flex items-center gap-1">
-        <Trash2 className="h-3.5 w-3.5" />
-        <span>Trash</span>
-      </div>
     </aside>
   );
 }

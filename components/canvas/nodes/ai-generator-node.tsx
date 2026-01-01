@@ -219,7 +219,7 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
       className={`
         relative bg-white rounded-xl border shadow-lg overflow-hidden
         transition-all duration-200
-        ${selected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-gray-200"}
+        ${selected ? "ring-2 ring-[var(--accent-primary)] border-[var(--accent-primary)]" : "border-gray-200"}
       `}
       style={{ width: 340, minHeight: 380 }}
       onMouseEnter={() => setIsHovered(true)}
@@ -228,25 +228,25 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
         setShowProviderDropdown(false);
       }}
     >
-      {/* Connection Handles */}
+      {/* Connection Handles - outside card when selected */}
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white"
-        style={{ top: 30 }}
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-left-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-white"
-        style={{ top: 30 }}
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-right-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border-b">
+      <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-[var(--accent-primary-muted)] to-cyan-50 border-b">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-            <Wand2 className="h-4 w-4 text-emerald-600" />
+          <div className="w-7 h-7 rounded-lg bg-[var(--accent-primary)]/20 flex items-center justify-center">
+            <Wand2 className="h-4 w-4 text-[var(--accent-primary-light)]" />
           </div>
           
           {/* Provider Selector */}
@@ -275,7 +275,7 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
                       handleProviderChange(provider.id);
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 transition-colors ${
-                      provider.id === data.provider ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
+                      provider.id === data.provider ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]" : "text-gray-700"
                     }`}
                   >
                     <span>{provider.icon}</span>
@@ -328,7 +328,7 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe your image..."
-            className="w-full h-20 p-2 text-sm border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            className="w-full h-20 p-2 text-sm border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)]"
             disabled={isGenerating}
           />
         </div>
@@ -346,7 +346,7 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
                 onClick={() => setAspectRatio(ratio.value)}
                 className={`px-2 py-1 text-xs rounded-md transition-colors ${
                   aspectRatio === ratio.value
-                    ? "bg-emerald-100 text-emerald-700 font-medium"
+                    ? "bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] font-medium"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
@@ -362,7 +362,7 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
             type="button"
             onClick={handleGenerate}
             disabled={!prompt.trim() || isGenerating}
-            className="flex-1 flex items-center justify-center gap-2 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isGenerating ? (
               <>
@@ -435,7 +435,7 @@ function AIGeneratorNode({ id, data, selected }: NodeProps<AIGeneratorNodeData>)
 
                   {/* Added indicator */}
                   {image.inCanvas && (
-                    <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-xl flex items-center justify-center">
+                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--accent-primary)]/100 rounded-xl flex items-center justify-center">
                       <ImageIcon className="h-2.5 w-2.5 text-white" />
                     </div>
                   )}

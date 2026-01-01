@@ -8,15 +8,15 @@ import {
   LayoutTemplate,
   Search,
   X,
-  ChevronDown,
-  ArrowUp,
-  ArrowDown,
   LayoutGrid,
   Grid3X3,
   List,
-  Sparkles,
   Loader2,
   FolderPlus,
+  Pencil,
+  Calendar,
+  Clock,
+  Type,
 } from "lucide-react";
 import {
   Popover,
@@ -24,8 +24,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ViewModeSwitch } from "@/components/workspace/view-mode-switch";
+import { SortControl } from "@/components/workspace/sort-control";
 
-export type PageType = "media" | "links" | "notes" | "canvas";
+export type PageType = "media" | "links" | "notes" | "canvas" | "scratches";
 export type ViewMode = "grid" | "list" | "compact";
 export type SortOption = "date_added" | "last_modified" | "name" | "type";
 
@@ -81,6 +82,12 @@ const pageConfig = {
     defaultPlaceholder: "Search anything...",
     defaultSortOptions: ["date_added", "last_modified", "name"] as SortOption[],
   },
+  scratches: {
+    icon: Pencil,
+    label: "Scratches",
+    defaultPlaceholder: "Search scratches...",
+    defaultSortOptions: ["date_added", "last_modified", "name"] as SortOption[],
+  },
 };
 
 const sortLabels: Record<SortOption, string> = {
@@ -88,6 +95,13 @@ const sortLabels: Record<SortOption, string> = {
   last_modified: "Last modified",
   name: "Name",
   type: "Type",
+};
+
+const sortIcons: Record<SortOption, typeof Calendar> = {
+  date_added: Calendar,
+  last_modified: Clock,
+  name: Type,
+  type: Type,
 };
 
 export function PageToolbar({
@@ -117,9 +131,14 @@ export function PageToolbar({
 
   const config = pageConfig[pageType];
   const Icon = config.icon;
-  const placeholder = searchPlaceholder || config.defaultPlaceholder;
   const activeSortOptions = sortOptions || config.defaultSortOptions;
   const effectiveFolderType = folderType || (pageType === "media" ? "documents" : pageType);
+
+  const sortOptionsList = activeSortOptions.map((option) => ({
+    value: option,
+    label: sortLabels[option],
+    icon: sortIcons[option],
+  }));
 
   const clearSearch = () => {
     onSearchQueryChange("");
@@ -154,90 +173,39 @@ export function PageToolbar({
 
   return (
     <div className="space-y-4 mb-4">
-      {/* Search Bar */}
+      {/* Search Input */}
       <div className="flex items-center gap-2">
-        <div className="inline-flex items-center gap-1 px-2 py-1 bg-muted rounded-lg text-xs">
-          <Icon className="h-3 w-3" />
-          {config.label}
-        </div>
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder={placeholder}
-            value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onSearch()}
-            className="w-full pl-9 pr-24 py-2 text-sm bg-transparent border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={clearSearch}
-                className="p-1 hover:bg-muted rounded-full transition-colors"
-              >
-                <X className="h-3 w-3 text-muted-foreground" />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onSearch}
-              disabled={!searchQuery.trim() || isSearching}
-              className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-            >
-              {isSearching ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Sparkles className="h-3 w-3" />
-              )}
-              Search
-            </button>
-          </div>
-        </div>
+        <Search className="h-5 w-5 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Search anything..."
+          value={searchQuery}
+          onChange={(e) => onSearchQueryChange(e.target.value)}
+          className="flex-1 text-2xl font-medium placeholder:text-muted-foreground/40 outline-none bg-transparent"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={clearSearch}
+            className="p-1 hover:bg-muted rounded-full transition-colors"
+          >
+            <X className="h-4 w-4 text-muted-foreground" />
+          </button>
+        )}
+        {isSearching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between">
-        {/* Sort Dropdown */}
-        <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                {sortLabels[sortBy]}
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-40 p-1" align="start">
-              {activeSortOptions.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => onSortByChange(opt)}
-                  className={`w-full text-left px-3 py-1.5 text-xs rounded hover:bg-muted ${
-                    sortBy === opt ? "bg-muted font-medium" : ""
-                  }`}
-                >
-                  {sortLabels[opt]}
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
-          <button
-            type="button"
-            onClick={() => onSortAscChange(!sortAsc)}
-            className="p-1 hover:bg-muted rounded"
-          >
-            {sortAsc ? (
-              <ArrowUp className="h-3 w-3" />
-            ) : (
-              <ArrowDown className="h-3 w-3" />
-            )}
-          </button>
-        </div>
+        {/* Sort Control */}
+        <SortControl
+          value={sortBy}
+          onValueChange={onSortByChange}
+          direction={sortAsc ? "asc" : "desc"}
+          onDirectionChange={(dir) => onSortAscChange(dir === "asc")}
+          options={sortOptionsList}
+          size="md"
+        />
 
         {/* View Mode & Actions */}
         <div className="flex items-center gap-2">
@@ -246,7 +214,7 @@ export function PageToolbar({
           {/* Folder Creation */}
           <Popover open={folderPopoverOpen} onOpenChange={setFolderPopoverOpen}>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700">
+              <button className="flex items-center gap-2 px-3 py-1.5 bg-[var(--accent-primary)] text-white rounded-lg text-sm hover:bg-[var(--accent-primary-hover)]">
                 <FolderPlus className="h-4 w-4" />
                 Folder
               </button>
@@ -263,7 +231,7 @@ export function PageToolbar({
                     if (e.key === "Enter") handleCreateFolder();
                     if (e.key === "Escape") setFolderPopoverOpen(false);
                   }}
-                  className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
                   autoFocus
                 />
                 <div className="flex gap-2">
@@ -278,7 +246,7 @@ export function PageToolbar({
                     type="button"
                     onClick={handleCreateFolder}
                     disabled={!folderName.trim() || isCreatingFolder}
-                    className="flex-1 px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                    className="flex-1 px-3 py-1.5 text-sm bg-[var(--accent-primary)] text-white rounded-lg hover:bg-[var(--accent-primary-hover)] disabled:opacity-50"
                   >
                     {isCreatingFolder ? "Creating..." : "Create"}
                   </button>

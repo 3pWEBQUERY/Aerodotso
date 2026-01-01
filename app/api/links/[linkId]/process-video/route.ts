@@ -8,7 +8,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Readable } from "stream";
 
 // Google API Key for Gemini
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || "AIzaSyD0O3MPU0PKKjZXayq0ayw0TyAB-CnN79w";
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
 // Create ytdl agent with cookies to bypass 403
 const agent = ytdl.createAgent(undefined, {
@@ -70,8 +70,8 @@ export async function POST(
   try {
     console.log(`Processing video ${videoId}...`);
 
-    const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY!);
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview-exp" });
     
     let audioBuffer: Buffer | null = null;
     let audioUrl: string | null = null;

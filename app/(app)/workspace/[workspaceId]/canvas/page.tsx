@@ -6,6 +6,8 @@ import { LayoutTemplate, Plus, Trash2, X, FolderClosed, Home, ChevronRight } fro
 import Link from "next/link";
 import { PageToolbar, ViewMode, SortOption } from "@/components/workspace/page-toolbar";
 import { CanvasCard } from "@/components/canvas/canvas-card";
+import { CanvasCardList } from "@/components/workspace/canvas-card-list";
+import { CanvasCardCompact } from "@/components/workspace/canvas-card-compact";
 import { AnimatedFolder } from "@/components/workspace/animated-folder";
 
 interface Canvas {
@@ -13,6 +15,15 @@ interface Canvas {
   name: string;
   created_at: string;
   folder_id?: string | null;
+  data?: {
+    nodes?: Array<{
+      id: string;
+      type: string;
+      position: { x: number; y: number };
+      data: any;
+    }>;
+    edges?: Array<any>;
+  };
 }
 
 interface Folder {
@@ -32,6 +43,8 @@ export default function WorkspaceCanvasPage() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Canvas[] | null>(null);
   const [isHoveringEmpty, setIsHoveringEmpty] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newCanvasName, setNewCanvasName] = useState("Untitled Canvas");
@@ -158,10 +171,65 @@ export default function WorkspaceCanvasPage() {
     return sortAsc ? -cmp : cmp;
   });
 
-  // Filter canvases by search innerhalb des aktuellen Folders
-  const filteredCanvases = sortedCanvases.filter((canvas) =>
-    canvas.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // AI Search - auto-trigger with debounce
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim() || !workspaceId) {
+      setSearchResults(null);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: query,
+          workspaceId,
+          searchTypes: ["semantic", "text"],
+          limit: 50,
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.results) {
+        // Filter only canvases from results
+        const canvasResults: Canvas[] = data.results
+          .filter((r: any) => r.result_type === "canvas")
+          .map((r: any) => ({
+            id: r.document_id,
+            name: r.title,
+            created_at: r.created_at || new Date().toISOString(),
+          }));
+        setSearchResults(canvasResults);
+      }
+    } catch (error) {
+      console.error("Search failed:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [workspaceId]);
+
+  // Auto-search with debounce when query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+
+    const debounceTimer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, handleSearch]);
+
+  // Use search results if available, otherwise filter locally
+  const filteredCanvases = searchResults !== null 
+    ? searchResults 
+    : sortedCanvases.filter((canvas) =>
+        canvas.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
   const hasAnyItems =
     canvasesInCurrentFolder.length > 0 || currentSubfolders.length > 0;
@@ -205,7 +273,8 @@ export default function WorkspaceCanvasPage() {
           pageType="canvas"
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
-          onSearch={() => {}}
+          onSearch={() => handleSearch(searchQuery)}
+          isSearching={isSearching}
           sortBy={sortBy}
           onSortByChange={setSortBy}
           sortAsc={sortAsc}
@@ -226,7 +295,7 @@ export default function WorkspaceCanvasPage() {
             <button
               type="button"
               onClick={openCreateDialog}
-              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
+              className="flex items-center gap-2 px-3 py-1.5 bg-[var(--accent-primary)] text-white text-sm rounded-lg hover:bg-[var(--accent-primary-hover)]"
             >
               <Plus className="h-4 w-4" />
               New Canvas
@@ -278,49 +347,83 @@ export default function WorkspaceCanvasPage() {
                 <p className="text-muted-foreground">No canvases found for &quot;{searchQuery}&quot;</p>
               </div>
             )}
-            {/* Folder and Canvas Grid */}
-            <div className="flex flex-wrap gap-4">
-              {currentSubfolders.map((folder) => {
-                const folderCanvases = canvases.filter(
-                  (canvas) => canvas.folder_id === folder.id
-                );
-                return (
-                  <Link
-                    key={folder.id}
-                    href={`/workspace/${workspaceId}/canvas?folder=${folder.id}`}
-                    className="w-44 cursor-pointer block group"
-                  >
-                    <div className="h-56 rounded-xl bg-gradient-to-b from-amber-50 to-orange-50 border border-amber-200/50 overflow-hidden">
-                      <AnimatedFolder
-                        name={folder.name}
-                        fileCount={folderCanvases.length}
-                        previewFiles={folderCanvases.slice(0, 3).map((c) => ({
-                          type: "canvas",
-                          name: c.name,
-                        }))}
-                      />
-                    </div>
-                    <p className="text-[10px] truncate flex items-center gap-1 text-muted-foreground mt-2 group-hover:text-amber-600">
-                      <FolderClosed className="h-3 w-3 text-amber-500" />
-                      {folder.name}
-                    </p>
-                  </Link>
-                );
-              })}
-              {filteredCanvases.map((canvas) => (
-                <div key={canvas.id} className="w-80">
-                  <CanvasCard
-                    id={canvas.id}
-                    name={canvas.name}
-                    createdAt={canvas.created_at}
+            {/* GRID VIEW */}
+            {viewMode === "grid" && (
+              <div className="flex flex-wrap gap-4">
+                {currentSubfolders.map((folder) => {
+                  const folderCanvases = canvases.filter(
+                    (canvas) => canvas.folder_id === folder.id
+                  );
+                  return (
+                    <Link
+                      key={folder.id}
+                      href={`/workspace/${workspaceId}/canvas?folder=${folder.id}`}
+                      className="w-44 cursor-pointer block group"
+                    >
+                      <div className="h-56 rounded-xl bg-gradient-to-b from-amber-50 to-orange-50 border border-amber-200/50 overflow-hidden">
+                        <AnimatedFolder
+                          name={folder.name}
+                          fileCount={folderCanvases.length}
+                          previewFiles={folderCanvases.slice(0, 3).map((c) => ({
+                            type: "canvas",
+                            name: c.name,
+                          }))}
+                        />
+                      </div>
+                      <p className="text-[10px] truncate flex items-center gap-1 text-muted-foreground mt-2 group-hover:text-amber-600">
+                        <FolderClosed className="h-3 w-3 text-amber-500" />
+                        {folder.name}
+                      </p>
+                    </Link>
+                  );
+                })}
+                {filteredCanvases.map((canvas) => (
+                  <div key={canvas.id} className="w-80">
+                    <CanvasCard
+                      id={canvas.id}
+                      name={canvas.name}
+                      createdAt={canvas.created_at}
+                      workspaceId={workspaceId || ""}
+                      isSelected={selectedCanvasIds.has(canvas.id)}
+                      onSelect={() => toggleCanvasSelection(canvas.id)}
+                      onDelete={() => deleteCanvas(canvas.id)}
+                      canvasData={canvas.data}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* LIST VIEW */}
+            {viewMode === "list" && (
+              <div className="space-y-2">
+                {filteredCanvases.map((canvas) => (
+                  <CanvasCardList
+                    key={canvas.id}
+                    canvas={canvas}
                     workspaceId={workspaceId || ""}
                     isSelected={selectedCanvasIds.has(canvas.id)}
                     onSelect={() => toggleCanvasSelection(canvas.id)}
-                    onDelete={() => deleteCanvas(canvas.id)}
                   />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {/* COMPACT VIEW */}
+            {viewMode === "compact" && (
+              <div className="space-y-0">
+                {filteredCanvases.map((canvas, i) => (
+                  <div key={canvas.id} className={i > 0 ? "mt-1" : ""}>
+                    <CanvasCardCompact
+                      canvas={canvas}
+                      workspaceId={workspaceId || ""}
+                      isSelected={selectedCanvasIds.has(canvas.id)}
+                      onSelect={() => toggleCanvasSelection(canvas.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 
@@ -348,7 +451,7 @@ export default function WorkspaceCanvasPage() {
                   value={newCanvasName}
                   onChange={(e) => setNewCanvasName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && createCanvas()}
-                  className="w-full px-3 py-2.5 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-emerald-50/30"
+                  className="w-full px-3 py-2.5 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)] bg-[var(--accent-primary)]/10/30"
                   autoFocus
                   onFocus={(e) => e.target.select()}
                 />
@@ -367,7 +470,7 @@ export default function WorkspaceCanvasPage() {
                   type="button"
                   onClick={createCanvas}
                   disabled={isCreating}
-                  className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                  className="px-4 py-2 text-sm bg-[var(--accent-primary)] text-white rounded-lg hover:bg-[var(--accent-primary-hover)] disabled:opacity-50"
                 >
                   {isCreating ? "Creating..." : "Create"}
                 </button>

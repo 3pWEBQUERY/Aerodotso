@@ -37,7 +37,7 @@ const ADD_NODE_OPTIONS = [
   { type: "url", label: "URL", icon: Link2 },
   { type: "ai-chat", label: "AI Chat", icon: MessageSquare },
   { type: "ai-generator", label: "AI Generator", icon: Wand2 },
-  { type: "group", label: "Group", icon: Folder },
+  { type: "folder", label: "Folder", icon: Folder },
 ];
 
 export function CanvasContextMenu({ x, y, nodeId, onClose }: CanvasContextMenuProps) {
@@ -78,7 +78,7 @@ export function CanvasContextMenu({ x, y, nodeId, onClose }: CanvasContextMenuPr
   const handleAddNode = (type: string, label: string) => {
     // Type-specific default data
     const typeDefaults: Record<string, any> = {
-      group: { childNodeIds: [], width: 300, height: 200 },
+      folder: { childNodeIds: [], width: 200, height: 240, description: "" },
       note: { content: "", backgroundColor: "yellow" },
       "ai-chat": { model: "claude-sonnet-4", conversation: [], connectedAssetIds: [], isExpanded: true },
       "ai-generator": { provider: "flux-pro", prompt: "", generationHistory: [], status: "idle" },
@@ -189,7 +189,7 @@ export function CanvasContextMenu({ x, y, nodeId, onClose }: CanvasContextMenuPr
               </button>
               <button
                 type="button"
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--accent-primary-light)] hover:bg-[var(--accent-primary)]/10 transition-colors"
               >
                 <ArrowRight className="h-4 w-4" />
                 Use as Reference

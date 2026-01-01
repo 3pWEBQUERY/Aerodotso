@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { LayoutTemplate, Trash2, Pencil, Copy, Plus } from "lucide-react";
+import { LayoutPanelLeft, Trash2, Pencil, Copy, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -175,13 +175,13 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
       return (
         <div
           key={canvas.id}
-          className={`group flex items-center rounded-md hover:bg-muted mb-0.5 overflow-hidden ${
-            isActive ? "bg-emerald-50 text-emerald-700" : ""
+          className={`group flex items-center rounded-md hover:bg-[var(--workspace-sidebar-muted)] mb-0.5 overflow-hidden ${
+            isActive ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]" : ""
           }`}
         >
           {editingId === canvas.id ? (
             <div className="flex-1 flex items-center gap-2 px-2 py-1">
-              <LayoutTemplate className="h-3.5 w-3.5 flex-shrink-0" />
+              <LayoutPanelLeft className="h-3.5 w-3.5 flex-shrink-0" />
               <input
                 type="text"
                 value={editingName}
@@ -196,7 +196,7 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
                     setEditingId(null);
                   }
                 }}
-                className="flex-1 bg-white border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                className="flex-1 bg-[var(--workspace-sidebar-muted)] border border-[var(--workspace-sidebar-border)] rounded px-1 py-0.5 text-xs text-[var(--workspace-sidebar-foreground)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -205,9 +205,9 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
             <>
               <Link
                 href={`/workspace/${workspaceId}/canvas/${canvas.id}`}
-                className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground"
+                className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-[var(--workspace-sidebar-muted-foreground)]"
               >
-                <LayoutTemplate className="h-3.5 w-3.5 flex-shrink-0" />
+                <LayoutPanelLeft className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="truncate max-w-[80px]">{canvas.name}</span>
               </Link>
               {/* Hover action buttons - 3 buttons like in the image */}
@@ -215,7 +215,7 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
                 <button
                   type="button"
                   onClick={(e) => startEditing(canvas, e)}
-                  className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                  className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                   title="Rename"
                 >
                   <Pencil className="h-3 w-3" />
@@ -223,7 +223,7 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
                 <button
                   type="button"
                   onClick={(e) => duplicateCanvas(canvas.id, e)}
-                  className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                  className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                   title="Duplicate"
                 >
                   <Copy className="h-3 w-3" />
@@ -231,7 +231,7 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
                 <button
                   type="button"
                   onClick={(e) => deleteCanvas(canvas.id, e)}
-                  className="p-1 hover:bg-red-100 rounded text-gray-500 hover:text-red-600"
+                  className="p-1 hover:bg-red-500/20 rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-red-400"
                   title="Delete"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -244,28 +244,16 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
     });
 
   return (
-    <aside className="w-44 flex-shrink-0 border-r text-sm flex flex-col overflow-hidden bg-background">
-      <header className="flex items-center justify-between px-3 py-2 border-b">
+    <aside className="w-64 flex-shrink-0 rounded-xl text-sm flex flex-col overflow-hidden border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+      <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--workspace-sidebar-border)] text-[var(--workspace-sidebar-foreground)]">
         <span className="font-medium">Canvas</span>
       </header>
-
-      {/* New Canvas Button */}
-      <div className="px-3 py-2 border-b">
-        <button
-          type="button"
-          onClick={createCanvas}
-          className="flex w-full items-center gap-2 px-2 py-1.5 bg-white border rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New Canvas
-        </button>
-      </div>
 
       {/* Canvas List */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {groupedCanvases.today.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2">
               Today
             </p>
             {renderCanvasList(groupedCanvases.today)}
@@ -274,7 +262,7 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
 
         {groupedCanvases.yesterday.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Yesterday
             </p>
             {renderCanvasList(groupedCanvases.yesterday)}
@@ -283,7 +271,7 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
 
         {groupedCanvases.pastWeek.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Past Week
             </p>
             {renderCanvasList(groupedCanvases.pastWeek)}
@@ -292,7 +280,7 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
 
         {groupedCanvases.older.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Older
             </p>
             {renderCanvasList(groupedCanvases.older)}
@@ -300,17 +288,12 @@ export function CanvasSidebar({ workspaceId }: CanvasSidebarProps) {
         )}
 
         {canvases.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">
+          <p className="text-xs text-[var(--workspace-sidebar-muted-foreground)] text-center py-4">
             No canvases yet
           </p>
         )}
       </div>
 
-      {/* Trash */}
-      <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-        <Trash2 className="h-3.5 w-3.5" />
-        <span>Trash</span>
-      </div>
     </aside>
   );
 }

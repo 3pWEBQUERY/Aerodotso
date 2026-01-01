@@ -118,13 +118,52 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         console.error("Text processing failed:", error);
       }
-    } else if (isVideo) {
+    } else if (isVideo && fileUrl) {
+      // For videos, extract thumbnail and analyze with AI
       try {
-        const textContent = `Video: ${document.title}`;
-        embedding = await generateQueryEmbedding(textContent);
-        tags = await generateAITags(textContent, mimeType);
+        console.log(`Processing video ${documentId}...`);
+        
+        // Try to get video thumbnail if available, otherwise use title-based analysis
+        // First check if there's already a thumbnail
+        if (document.thumbnail_path) {
+          const storage = getRailwayStorage();
+          const { signedUrl: thumbUrl } = await storage.createSignedUrl(document.thumbnail_path, 60 * 60);
+          
+          if (thumbUrl) {
+            // Analyze the thumbnail
+            const analysisResult: AnalysisResult = await analyzeImage(thumbUrl, {
+              quality: "standard",
+              preferredProvider: "auto",
+            });
+
+            description = `Video: ${analysisResult.description}`;
+            tags = analysisResult.tags;
+            detailedAnalysis = analysisResult.detailedAnalysis;
+            searchableText = `video ${document.title} ${analysisResult.searchableText}`;
+            modelUsed = analysisResult.modelUsed;
+
+            // Generate embedding from the analysis
+            embedding = await generateQueryEmbedding(`${description} ${searchableText}`);
+
+            console.log(`Video analysis complete: ${tags.length} tags`);
+          }
+        } else {
+          // Fallback to title-based analysis
+          const textContent = `Video: ${document.title}`;
+          embedding = await generateQueryEmbedding(textContent);
+          tags = await generateAITags(textContent, mimeType);
+          searchableText = textContent.toLowerCase();
+        }
       } catch (error) {
         console.error("Video processing failed:", error);
+        // Fallback
+        try {
+          const textContent = `Video: ${document.title}`;
+          embedding = await generateQueryEmbedding(textContent);
+          tags = await generateAITags(textContent, mimeType);
+        } catch (fallbackError) {
+          console.error("Video fallback also failed:", fallbackError);
+        }
       }
     } else {
       try {
@@ -136,9 +175,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update document with generated data
-    const updateData: Record<string, any> = {
-      processed_at: new Date().toISOString(),
-    };
+    const updateData: Record<string, any> = {};
     
     if (embedding) {
       updateData.embedding = `[${embedding.join(",")}]`;

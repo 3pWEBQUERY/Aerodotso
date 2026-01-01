@@ -355,7 +355,7 @@ export default function NotePage() {
                     if (e.key === "Enter") saveEditingTitle();
                     if (e.key === "Escape") cancelEditingTitle();
                   }}
-                  className="font-medium bg-white border border-emerald-500 rounded px-1 py-0.5 outline-none min-w-[100px]"
+                  className="font-medium bg-white border border-[var(--accent-primary)] rounded px-1 py-0.5 outline-none min-w-[100px]"
                 />
               ) : (
                 <span 
@@ -460,7 +460,7 @@ export default function NotePage() {
                   <button
                     type="button"
                     className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md ${
-                      currentFolderId === null ? "bg-emerald-50 text-emerald-700" : "text-gray-700 hover:bg-gray-100"
+                      currentFolderId === null ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]" : "text-gray-700 hover:bg-gray-100"
                     }`}
                     onClick={() => moveToFolder(null)}
                   >
@@ -474,7 +474,7 @@ export default function NotePage() {
                       key={folder.id}
                       type="button"
                       className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md ${
-                        currentFolderId === folder.id ? "bg-emerald-50 text-emerald-700" : "text-gray-700 hover:bg-gray-100"
+                        currentFolderId === folder.id ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]" : "text-gray-700 hover:bg-gray-100"
                       }`}
                       onClick={() => moveToFolder(folder.id)}
                     >
@@ -510,14 +510,14 @@ export default function NotePage() {
                     
                     {/* Current Version */}
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 bg-emerald-50 rounded-lg border border-emerald-200">
+                      <div className="flex items-center justify-between p-2 bg-[var(--accent-primary)]/10 rounded-lg border border-[var(--accent-primary)]/30">
                         <div>
-                          <p className="text-xs font-medium text-emerald-700">Current Version</p>
-                          <p className="text-xs text-emerald-600">
+                          <p className="text-xs font-medium text-[var(--accent-primary)]">Current Version</p>
+                          <p className="text-xs text-[var(--accent-primary-light)]">
                             {note?.updated_at ? formatVersionDate(new Date(note.updated_at)) : "Just now"}
                           </p>
                         </div>
-                        <span className="text-xs text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded">Active</span>
+                        <span className="text-xs text-[var(--accent-primary-light)] bg-[var(--accent-primary)]/20 px-2 py-0.5 rounded">Active</span>
                       </div>
                       
                       {/* Previous versions placeholder */}
@@ -581,7 +581,7 @@ export default function NotePage() {
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Users className="h-4 w-4" />
                       <span>Visible to</span>
-                      <span className="text-emerald-600 font-medium">Workspace members</span>
+                      <span className="text-[var(--accent-primary-light)] font-medium">Workspace members</span>
                     </div>
                     <div className="h-px bg-gray-100" />
                     <div className="text-xs text-gray-500 space-y-1">

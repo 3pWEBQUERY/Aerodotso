@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useCanvasStore } from "@/lib/canvas/store";
 import {
@@ -14,7 +15,6 @@ import {
   AlignStartVertical,
   AlignCenterVertical,
   AlignEndVertical,
-  Sparkles,
   Link2,
   MoreHorizontal,
 } from "lucide-react";
@@ -143,9 +143,21 @@ export function SelectionToolbar({ canvasRect }: SelectionToolbarProps) {
         transform: "translateX(-50%)",
       }}
     >
-      <div className="flex items-center gap-1 px-2 py-1.5 bg-white rounded-xl shadow-lg border">
+      <div
+        className="flex items-center gap-1 px-2 py-1.5 rounded-xl shadow-lg border"
+        style={{
+          backgroundColor: "var(--workspace-sidebar)",
+          borderColor: "var(--workspace-sidebar-border)",
+        }}
+      >
         {/* Selection count */}
-        <div className="px-2 py-1 text-xs font-medium text-gray-500 border-r mr-1">
+        <div
+          className="px-2 py-1 text-xs font-medium border-r mr-1"
+          style={{
+            color: "rgba(255,255,255,0.7)",
+            borderColor: "rgba(255,255,255,0.15)",
+          }}
+        >
           {selectedNodes.length} selected
         </div>
 
@@ -153,7 +165,10 @@ export function SelectionToolbar({ canvasRect }: SelectionToolbarProps) {
         <button
           type="button"
           onClick={handleCopy}
-          className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-lg transition-colors"
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--workspace-sidebar-muted-foreground)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--workspace-sidebar-muted-foreground)")}
           title="Copy (⌘C)"
         >
           <Copy className="h-4 w-4" />
@@ -163,7 +178,10 @@ export function SelectionToolbar({ canvasRect }: SelectionToolbarProps) {
         <button
           type="button"
           onClick={handleDuplicate}
-          className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-lg transition-colors"
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--workspace-sidebar-muted-foreground)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--workspace-sidebar-muted-foreground)")}
           title="Duplicate (⌘D)"
         >
           <Layers className="h-4 w-4" />
@@ -173,7 +191,10 @@ export function SelectionToolbar({ canvasRect }: SelectionToolbarProps) {
         <button
           type="button"
           onClick={handleToggleLock}
-          className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-lg transition-colors"
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--workspace-sidebar-muted-foreground)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--workspace-sidebar-muted-foreground)")}
           title={anyLocked ? "Unlock" : "Lock"}
         >
           {anyLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
@@ -185,70 +206,80 @@ export function SelectionToolbar({ canvasRect }: SelectionToolbarProps) {
             <button
               type="button"
               onClick={() => setShowAlignMenu(!showAlignMenu)}
-              className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-lg transition-colors"
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: "var(--workspace-sidebar-muted-foreground)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--workspace-sidebar-muted-foreground)")}
               title="Align"
             >
               <AlignCenter className="h-4 w-4" />
             </button>
 
             {showAlignMenu && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 bg-white rounded-lg shadow-xl border z-50">
-                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">
+              <div
+                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-lg shadow-xl border z-50"
+                style={{
+                  backgroundColor: "var(--workspace-sidebar)",
+                  borderColor: "var(--workspace-sidebar-border)",
+                  color: "#fff",
+                }}
+              >
+                <div className="text-[10px] uppercase tracking-wider mb-2 px-1 text-white/60">
                   Horizontal
                 </div>
                 <div className="flex gap-1 mb-2">
                   <button
                     type="button"
                     onClick={() => alignNodes("left")}
-                    className="p-1.5 hover:bg-gray-100 rounded"
+                    className="p-1.5 rounded transition-colors hover:bg-[var(--workspace-sidebar-muted)]"
                     title="Align Left"
                   >
-                    <AlignLeft className="h-4 w-4 text-gray-600" />
+                    <AlignLeft className="h-4 w-4 text-white/80" />
                   </button>
                   <button
                     type="button"
                     onClick={() => alignNodes("center")}
-                    className="p-1.5 hover:bg-gray-100 rounded"
+                    className="p-1.5 rounded transition-colors hover:bg-[var(--workspace-sidebar-muted)]"
                     title="Align Center"
                   >
-                    <AlignCenter className="h-4 w-4 text-gray-600" />
+                    <AlignCenter className="h-4 w-4 text-white/80" />
                   </button>
                   <button
                     type="button"
                     onClick={() => alignNodes("right")}
-                    className="p-1.5 hover:bg-gray-100 rounded"
+                    className="p-1.5 rounded transition-colors hover:bg-[var(--workspace-sidebar-muted)]"
                     title="Align Right"
                   >
-                    <AlignRight className="h-4 w-4 text-gray-600" />
+                    <AlignRight className="h-4 w-4 text-white/80" />
                   </button>
                 </div>
-                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">
+                <div className="text-[10px] text-white/60 uppercase tracking-wider mb-2 px-1">
                   Vertical
                 </div>
                 <div className="flex gap-1">
                   <button
                     type="button"
                     onClick={() => alignNodes("top")}
-                    className="p-1.5 hover:bg-gray-100 rounded"
+                    className="p-1.5 rounded transition-colors hover:bg-[var(--workspace-sidebar-muted)]"
                     title="Align Top"
                   >
-                    <AlignStartVertical className="h-4 w-4 text-gray-600" />
+                    <AlignStartVertical className="h-4 w-4 text-white/80" />
                   </button>
                   <button
                     type="button"
                     onClick={() => alignNodes("middle")}
-                    className="p-1.5 hover:bg-gray-100 rounded"
+                    className="p-1.5 rounded transition-colors hover:bg-[var(--workspace-sidebar-muted)]"
                     title="Align Middle"
                   >
-                    <AlignCenterVertical className="h-4 w-4 text-gray-600" />
+                    <AlignCenterVertical className="h-4 w-4 text-white/80" />
                   </button>
                   <button
                     type="button"
                     onClick={() => alignNodes("bottom")}
-                    className="p-1.5 hover:bg-gray-100 rounded"
+                    className="p-1.5 rounded transition-colors hover:bg-[var(--workspace-sidebar-muted)]"
                     title="Align Bottom"
                   >
-                    <AlignEndVertical className="h-4 w-4 text-gray-600" />
+                    <AlignEndVertical className="h-4 w-4 text-white/80" />
                   </button>
                 </div>
               </div>
@@ -256,33 +287,46 @@ export function SelectionToolbar({ canvasRect }: SelectionToolbarProps) {
           </div>
         )}
 
-        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <div
+          className="w-px h-5 mx-1"
+          style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+        />
 
         {/* AI Actions */}
         <button
           type="button"
-          className="p-1.5 text-violet-500 hover:bg-violet-50 hover:text-violet-700 rounded-lg transition-colors"
+          className="p-1.5 text-violet-300 hover:bg-violet-500/20 hover:text-white rounded-lg transition-colors"
           title="Analyze with AI"
         >
-          <Sparkles className="h-4 w-4" />
+          <Image
+            src="/ai.svg"
+            alt="AI"
+            width={16}
+            height={16}
+            className="h-4 w-4 invert brightness-200"
+            priority={false}
+          />
         </button>
 
         {/* Connect */}
         <button
           type="button"
-          className="p-1.5 text-blue-500 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors"
+          className="p-1.5 text-blue-300 hover:bg-blue-500/20 hover:text-white rounded-lg transition-colors"
           title="Create Connection"
         >
           <Link2 className="h-4 w-4" />
         </button>
 
-        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <div
+          className="w-px h-5 mx-1"
+          style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+        />
 
         {/* Delete */}
         <button
           type="button"
           onClick={handleDelete}
-          className="p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
+          className="p-1.5 text-red-300 hover:bg-red-500/20 hover:text-white rounded-lg transition-colors"
           title="Delete (⌫)"
         >
           <Trash2 className="h-4 w-4" />

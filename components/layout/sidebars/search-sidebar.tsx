@@ -51,19 +51,16 @@ export function SearchSidebar({
   };
 
   return (
-    <aside className="w-52 flex-shrink-0 border-r text-sm flex flex-col overflow-hidden bg-muted/30">
-      <header className="flex items-center justify-between px-4 py-3 border-b">
-        <span className="font-medium flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-600" />
-          Search
-        </span>
+    <aside className="w-64 flex-shrink-0 rounded-xl text-sm flex flex-col overflow-hidden border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+      <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--workspace-sidebar-border)] text-[var(--workspace-sidebar-foreground)]">
+        <span className="font-medium">Search</span>
       </header>
 
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
         {/* Recent Searches */}
         {recentSearches.length > 0 && (
           <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
               <Clock className="h-3 w-3" />
               Recent
             </p>
@@ -73,7 +70,7 @@ export function SearchSidebar({
                   key={i}
                   type="button"
                   onClick={() => onSearchSelect?.(search.query)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-[var(--workspace-sidebar-muted-foreground)] hover:bg-[var(--workspace-sidebar-muted)] hover:text-[var(--workspace-sidebar-foreground)] transition-colors"
                 >
                   <Search className="h-3 w-3 flex-shrink-0" />
                   <span className="truncate flex-1 text-left">{search.query}</span>
@@ -84,62 +81,8 @@ export function SearchSidebar({
           </div>
         )}
 
-        {/* Suggested Tags */}
-        {suggestedTags.length > 0 && (
-          <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
-              <Tag className="h-3 w-3" />
-              Tags
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {suggestedTags.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => onSearchSelect?.(tag)}
-                  className="px-2 py-0.5 text-[10px] bg-emerald-50 text-emerald-700 rounded-full hover:bg-emerald-100 transition-colors"
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Search Type Filters */}
-        <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
-            <SlidersHorizontal className="h-3 w-3" />
-            Search Types
-          </p>
-          <div className="space-y-1">
-            {[
-              { id: "semantic", label: "AI Semantic", icon: Sparkles },
-              { id: "text", label: "Text Match", icon: FileText },
-              { id: "visual", label: "Visual Search", icon: ImageIcon },
-            ].map(({ id, label, icon: Icon }) => (
-              <label
-                key={id}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted cursor-pointer text-xs"
-              >
-                <input
-                  type="checkbox"
-                  checked={localSearchTypes.includes(id)}
-                  onChange={(e) => handleSearchTypeChange(id, e.target.checked)}
-                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                <Icon className="h-3 w-3 text-muted-foreground" />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
       </div>
 
-      <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center gap-2 hover:bg-muted cursor-pointer">
-        <Trash2 className="h-3.5 w-3.5" />
-        <span>Clear History</span>
-      </div>
     </aside>
   );
 }

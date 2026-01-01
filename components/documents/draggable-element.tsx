@@ -22,7 +22,12 @@ interface DraggableElementProps {
   initialY?: number;
   className?: string;
   onBoundsChange?: (id: string, bounds: ElementBounds) => void;
+  showDragIndicator?: boolean;
+  isSelected?: boolean;
+  onSelect?: (id: string) => void;
 }
+
+const DRAG_THRESHOLD = 5; // Minimum pixels to move before drag starts
 
 export function DraggableElement({
   children,
@@ -31,20 +36,27 @@ export function DraggableElement({
   initialY = 0,
   className = "",
   onBoundsChange,
+  showDragIndicator = true,
+  isSelected = false,
+  onSelect,
 }: DraggableElementProps) {
   const [position, setPosition] = useState<Position>({ x: initialX, y: initialY });
   const [isDragging, setIsDragging] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const elementStartPos = useRef({ x: 0, y: 0 });
+  const hasDragged = useRef(false);
 
   // Report bounds whenever position changes or on mount
   useEffect(() => {
     if (onBoundsChange && elementRef.current) {
       const rect = elementRef.current.getBoundingClientRect();
+      const parentRect = elementRef.current.parentElement?.getBoundingClientRect();
+      const offsetX = parentRect?.left || 0;
+      const offsetY = parentRect?.top || 0;
       onBoundsChange(id, {
-        x: position.x,
-        y: position.y,
+        x: rect.left - offsetX,
+        y: rect.top - offsetY,
         width: rect.width,
         height: rect.height,
       });
@@ -58,9 +70,12 @@ export function DraggableElement({
     const observer = new ResizeObserver(() => {
       if (elementRef.current) {
         const rect = elementRef.current.getBoundingClientRect();
+        const parentRect = elementRef.current.parentElement?.getBoundingClientRect();
+        const offsetX = parentRect?.left || 0;
+        const offsetY = parentRect?.top || 0;
         onBoundsChange(id, {
-          x: position.x,
-          y: position.y,
+          x: rect.left - offsetX,
+          y: rect.top - offsetY,
           width: rect.width,
           height: rect.height,
         });
@@ -88,22 +103,33 @@ export function DraggableElement({
     
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    
     dragStartPos.current = { x: e.clientX, y: e.clientY };
     elementStartPos.current = { x: position.x, y: position.y };
+    hasDragged.current = false;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       moveEvent.preventDefault();
       const deltaX = moveEvent.clientX - dragStartPos.current.x;
       const deltaY = moveEvent.clientY - dragStartPos.current.y;
       
-      setPosition({
-        x: elementStartPos.current.x + deltaX,
-        y: elementStartPos.current.y + deltaY,
-      });
+      // Check if we've moved past the threshold
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      if (distance > DRAG_THRESHOLD) {
+        hasDragged.current = true;
+        setIsDragging(true);
+        setPosition({
+          x: elementStartPos.current.x + deltaX,
+          y: elementStartPos.current.y + deltaY,
+        });
+      }
     };
 
     const handleMouseUp = () => {
+      // If we didn't drag, treat it as a click (select)
+      if (!hasDragged.current) {
+        onSelect?.(id);
+      }
       setIsDragging(false);
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
@@ -111,7 +137,7 @@ export function DraggableElement({
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
-  }, [position]);
+  }, [position, id, onSelect]);
 
   return (
     <div
@@ -127,13 +153,15 @@ export function DraggableElement({
       onMouseDown={handleMouseDown}
     >
       {/* Drag indicator - shows on hover */}
-      <div 
-        className={`absolute -top-8 left-1/2 -translate-x-1/2 bg-white border rounded-full px-3 py-1 shadow-md flex items-center gap-1.5 transition-opacity z-20 ${isDragging ? "opacity-100" : "opacity-0 hover:opacity-100"}`}
-        style={{ pointerEvents: "none" }}
-      >
-        <Move className="h-3.5 w-3.5 text-gray-500" />
-        <span className="text-xs text-gray-600 font-medium">Drag to move</span>
-      </div>
+      {showDragIndicator && (
+        <div 
+          className={`absolute -top-8 left-1/2 -translate-x-1/2 bg-white border rounded-full px-3 py-1 shadow-md flex items-center gap-1.5 transition-opacity z-20 ${isDragging ? "opacity-100" : "opacity-0 hover:opacity-100"}`}
+          style={{ pointerEvents: "none" }}
+        >
+          <Move className="h-3.5 w-3.5 text-gray-500" />
+          <span className="text-xs text-gray-600 font-medium">Drag to move</span>
+        </div>
+      )}
       {children}
     </div>
   );

@@ -19,7 +19,7 @@ import {
 const QUICK_ADD_OPTIONS = [
   { type: "note", label: "Note", icon: StickyNote, color: "bg-amber-100 text-amber-600" },
   { type: "ai-chat", label: "AI Chat", icon: MessageSquare, color: "bg-violet-100 text-violet-600" },
-  { type: "ai-generator", label: "Generator", icon: Wand2, color: "bg-emerald-100 text-emerald-600" },
+  { type: "ai-generator", label: "Generator", icon: Wand2, color: "bg-[var(--accent-primary)]/20 text-[var(--accent-primary-light)]" },
   { type: "image", label: "Image", icon: ImageIcon, color: "bg-blue-100 text-blue-600" },
   { type: "document", label: "Document", icon: FileText, color: "bg-orange-100 text-orange-600" },
   { type: "url", label: "URL", icon: Link2, color: "bg-indigo-100 text-indigo-600" },
@@ -133,7 +133,7 @@ export function QuickAddMenu({ centerPosition, onAddImage }: QuickAddMenuProps) 
           flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border transition-all
           ${isExpanded 
             ? "bg-gray-100 text-gray-700 border-gray-200" 
-            : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+            : "bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)]"
           }
         `}
       >

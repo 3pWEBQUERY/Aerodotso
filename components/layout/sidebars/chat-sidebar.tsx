@@ -157,8 +157,8 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
       return (
         <div
           key={session.id}
-          className={`group flex items-center rounded-md hover:bg-muted mb-0.5 overflow-hidden ${
-            isActive ? "bg-emerald-50 text-emerald-700" : ""
+          className={`group flex items-center rounded-md hover:bg-[var(--workspace-sidebar-muted)] mb-0.5 overflow-hidden ${
+            isActive ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]" : ""
           }`}
         >
           {editingId === session.id ? (
@@ -178,7 +178,7 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
                     setEditingId(null);
                   }
                 }}
-                className="flex-1 bg-white border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                className="flex-1 bg-[var(--workspace-sidebar-muted)] border border-[var(--workspace-sidebar-border)] rounded px-1 py-0.5 text-xs text-[var(--workspace-sidebar-foreground)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -187,7 +187,7 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
             <>
               <Link
                 href={`/workspace/${workspaceId}/chat`}
-                className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground"
+                className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-[var(--workspace-sidebar-muted-foreground)]"
               >
                 <MessageCircle className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="truncate max-w-[80px]">{session.title}</span>
@@ -197,7 +197,7 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
                 <button
                   type="button"
                   onClick={(e) => startEditing(session, e)}
-                  className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                  className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                   title="Rename"
                 >
                   <Pencil className="h-3 w-3" />
@@ -205,7 +205,7 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
                 <button
                   type="button"
                   onClick={(e) => duplicateSession(session.id, e)}
-                  className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                  className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                   title="Duplicate"
                 >
                   <Copy className="h-3 w-3" />
@@ -213,7 +213,7 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
                 <button
                   type="button"
                   onClick={(e) => deleteSession(session.id, e)}
-                  className="p-1 hover:bg-red-100 rounded text-gray-500 hover:text-red-600"
+                  className="p-1 hover:bg-red-500/20 rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-red-400"
                   title="Delete"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -226,31 +226,28 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
     });
 
   return (
-    <aside className="w-44 flex-shrink-0 border-r text-sm flex flex-col overflow-hidden bg-background">
+    <aside className="w-64 flex-shrink-0 rounded-xl text-sm flex flex-col overflow-hidden border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+      {/* Chat Header */}
+      <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--workspace-sidebar-border)] text-[var(--workspace-sidebar-foreground)]">
+        <span className="font-medium">Chat</span>
+      </header>
+
       {/* New Chat Button */}
-      <div className="px-3 py-2 border-b">
+      <div className="px-3 py-2 border-b border-[var(--workspace-sidebar-border)]">
         <Link
           href={`/workspace/${workspaceId}/chat`}
-          className="flex w-full items-center gap-2 px-2 py-1.5 bg-white border rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+          className="flex w-full items-center gap-2 px-2 py-1.5 bg-[var(--workspace-sidebar-muted)] border border-[var(--workspace-sidebar-border)] rounded-lg text-xs font-medium text-[var(--workspace-sidebar-foreground)] hover:bg-[var(--workspace-sidebar-muted)]/80 transition-colors"
         >
           <Pencil className="h-3.5 w-3.5" />
           New Chat
         </Link>
       </div>
 
-      {/* My Chats Header */}
-      <div className="px-3 py-2">
-        <button className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
-          <Sparkles className="h-3.5 w-3.5" />
-          My Chats
-        </button>
-      </div>
-
       {/* Chat History */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {groupedSessions.today.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2">
               Today
             </p>
             {renderSessionList(groupedSessions.today)}
@@ -259,7 +256,7 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
 
         {groupedSessions.yesterday.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Yesterday
             </p>
             {renderSessionList(groupedSessions.yesterday)}
@@ -268,7 +265,7 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
 
         {groupedSessions.pastWeek.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Past Week
             </p>
             {renderSessionList(groupedSessions.pastWeek)}
@@ -277,7 +274,7 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
 
         {groupedSessions.older.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">
               Older
             </p>
             {renderSessionList(groupedSessions.older)}
@@ -285,17 +282,12 @@ export function ChatSidebar({ workspaceId }: ChatSidebarProps) {
         )}
 
         {sessions.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">
+          <p className="text-xs text-[var(--workspace-sidebar-muted-foreground)] text-center py-4">
             No chats yet
           </p>
         )}
       </div>
 
-      {/* Trash */}
-      <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-        <Trash2 className="h-3.5 w-3.5" />
-        <span>Trash</span>
-      </div>
     </aside>
   );
 }

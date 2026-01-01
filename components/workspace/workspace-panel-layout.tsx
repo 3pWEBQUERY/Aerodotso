@@ -13,7 +13,7 @@ export function WorkspacePanelLayout({ children, workspaceId }: WorkspacePanelLa
   return (
     <PanelProvider>
       <div className="flex-1 flex min-w-0 h-screen overflow-hidden">
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-y-auto">
           {children}
         </div>
         <SidePanel workspaceId={workspaceId} />

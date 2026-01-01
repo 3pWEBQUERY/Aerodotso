@@ -467,7 +467,7 @@ export default function LinkDetailPage() {
                     if (e.key === "Enter") saveEditingTitle();
                     if (e.key === "Escape") setIsEditingTitle(false);
                   }}
-                  className="font-medium bg-white border border-emerald-500 rounded px-1 py-0.5 outline-none min-w-[100px]"
+                  className="font-medium bg-white border border-[var(--accent-primary)] rounded px-1 py-0.5 outline-none min-w-[100px]"
                 />
               ) : (
                 <span 
@@ -581,7 +581,7 @@ export default function LinkDetailPage() {
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Users className="h-4 w-4" />
                       <span>Visible to</span>
-                      <span className="text-emerald-600 font-medium">Workspace members</span>
+                      <span className="text-[var(--accent-primary-light)] font-medium">Workspace members</span>
                     </div>
                     <div className="h-px bg-gray-100" />
                     <div className="text-xs text-gray-500 space-y-1">
@@ -624,7 +624,7 @@ export default function LinkDetailPage() {
                   type="button"
                   onClick={processVideo}
                   disabled={isProcessingVideo}
-                  className="absolute bottom-4 right-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg shadow-lg flex items-center gap-2 disabled:opacity-50"
+                  className="absolute bottom-4 right-4 px-4 py-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white text-sm rounded-lg shadow-lg flex items-center gap-2 disabled:opacity-50"
                 >
                   {isProcessingVideo ? (
                     <>
@@ -683,7 +683,7 @@ export default function LinkDetailPage() {
                 type="button"
                 onClick={() => setIsDrawingMode(!isDrawingMode)}
                 className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-2 ${
-                  isDrawingMode ? "bg-emerald-100 text-emerald-700" : "hover:bg-gray-100"
+                  isDrawingMode ? "bg-[var(--accent-primary)]/20 text-[var(--accent-primary)]" : "hover:bg-gray-100"
                 }`}
               >
                 <PenTool className="h-4 w-4" />
@@ -699,7 +699,7 @@ export default function LinkDetailPage() {
                         key={tool}
                         type="button"
                         onClick={() => setDrawingTool(tool)}
-                        className={`p-1.5 rounded ${drawingTool === tool ? "bg-emerald-100" : "hover:bg-gray-100"}`}
+                        className={`p-1.5 rounded ${drawingTool === tool ? "bg-[var(--accent-primary)]/20" : "hover:bg-gray-100"}`}
                       >
                         {tool === "pen" && <PenTool className="h-4 w-4" />}
                         {tool === "eraser" && <Eraser className="h-4 w-4" />}
@@ -748,7 +748,7 @@ export default function LinkDetailPage() {
               onClick={() => setActiveTab("comments")}
               className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
                 activeTab === "comments"
-                  ? "text-emerald-600 border-b-2 border-emerald-600"
+                  ? "text-[var(--accent-primary-light)] border-b-2 border-[var(--accent-primary)]"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -760,7 +760,7 @@ export default function LinkDetailPage() {
               onClick={() => setActiveTab("transcript")}
               className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
                 activeTab === "transcript"
-                  ? "text-emerald-600 border-b-2 border-emerald-600"
+                  ? "text-[var(--accent-primary-light)] border-b-2 border-[var(--accent-primary)]"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -781,7 +781,7 @@ export default function LinkDetailPage() {
                   comments.map((comment) => (
                     <div key={comment.id} className="bg-white rounded-lg p-3 shadow-sm">
                       <div className="flex items-start gap-2">
-                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-sm font-medium text-emerald-700">
+                        <div className="w-8 h-8 rounded-full bg-[var(--accent-primary)]/20 flex items-center justify-center text-sm font-medium text-[var(--accent-primary)]">
                           {comment.user?.name?.charAt(0) || "U"}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -824,7 +824,7 @@ export default function LinkDetailPage() {
                     placeholder="Search in transcript..."
                     value={transcriptSearch}
                     onChange={(e) => setTranscriptSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full pl-9 pr-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20"
                   />
                 </div>
 
@@ -838,7 +838,7 @@ export default function LinkDetailPage() {
                         type="button"
                         onClick={generateTranscript}
                         disabled={isTranscribing}
-                        className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 mx-auto"
+                        className="px-4 py-2 bg-[var(--accent-primary)] text-white text-sm rounded-lg hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 flex items-center gap-2 mx-auto"
                       >
                         {isTranscribing ? (
                           <>
@@ -865,7 +865,7 @@ export default function LinkDetailPage() {
                           className={`px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 ${
                             isSpeaking && speakingSegmentId === "full"
                               ? "bg-red-100 text-red-600 hover:bg-red-200"
-                              : "bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
+                              : "bg-[var(--accent-primary)]/20 text-[var(--accent-primary-light)] hover:bg-[var(--accent-primary)]/30"
                           }`}
                         >
                           {isSpeaking && speakingSegmentId === "full" ? (
@@ -897,7 +897,7 @@ export default function LinkDetailPage() {
                         <div
                           key={segment.id}
                           className={`group flex items-start gap-2 p-2 rounded hover:bg-white transition-colors ${
-                            speakingSegmentId === segment.id ? "bg-emerald-50 ring-1 ring-emerald-200" : ""
+                            speakingSegmentId === segment.id ? "bg-[var(--accent-primary)]/10 ring-1 ring-[var(--accent-primary)]/30" : ""
                           }`}
                         >
                           <button
@@ -905,8 +905,8 @@ export default function LinkDetailPage() {
                             onClick={() => speakText(segment.text, segment.id)}
                             className={`flex-shrink-0 p-1 rounded ${
                               speakingSegmentId === segment.id
-                                ? "text-emerald-600"
-                                : "text-gray-400 hover:text-emerald-600 opacity-0 group-hover:opacity-100"
+                                ? "text-[var(--accent-primary-light)]"
+                                : "text-gray-400 hover:text-[var(--accent-primary-light)] opacity-0 group-hover:opacity-100"
                             }`}
                             title="Vorlesen"
                           >
@@ -956,13 +956,13 @@ export default function LinkDetailPage() {
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addComment()}
-                  className="flex-1 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="flex-1 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20"
                 />
                 <button
                   type="button"
                   onClick={addComment}
                   disabled={!newComment.trim() || isSubmittingComment}
-                  className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                  className="px-3 py-2 bg-[var(--accent-primary)] text-white rounded-lg hover:bg-[var(--accent-primary-hover)] disabled:opacity-50"
                 >
                   {isSubmittingComment ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

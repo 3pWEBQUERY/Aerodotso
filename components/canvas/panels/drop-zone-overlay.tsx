@@ -208,9 +208,9 @@ export function DropZoneOverlay({ onFilesDropped }: DropZoneOverlayProps) {
       style={{ pointerEvents: isDragOver ? "auto" : "none" }}
     >
       {isDragOver && (
-        <div className="absolute inset-0 bg-emerald-500/10 backdrop-blur-sm flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4 p-8 bg-white rounded-2xl shadow-2xl border-2 border-dashed border-emerald-500">
-            <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+        <div className="absolute inset-0 bg-[var(--accent-primary)]/100/10 backdrop-blur-sm flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4 p-8 bg-white rounded-2xl shadow-2xl border-2 border-dashed border-[var(--accent-primary)]">
+            <div className="w-20 h-20 rounded-full bg-[var(--accent-primary)]/20 flex items-center justify-center text-[var(--accent-primary-light)]">
               {getIcon()}
             </div>
             <div className="text-center">

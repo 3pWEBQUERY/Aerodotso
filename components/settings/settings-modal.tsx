@@ -488,7 +488,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                           className={cn(
                             "flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg transition-colors",
                             activeTab === item.id
-                              ? "bg-emerald-100 text-emerald-900 font-medium"
+                              ? "bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] font-medium"
                               : "hover:bg-muted text-foreground"
                           )}
                         >
@@ -533,7 +533,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                       <button
                         type="button"
                         onClick={() => workspaceAvatarInputRef.current?.click()}
-                        className="relative h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 font-medium text-sm overflow-hidden group cursor-pointer"
+                        className="relative h-9 w-9 rounded-full bg-[var(--accent-primary)]/10 flex items-center justify-center text-[var(--accent-primary)] font-medium text-sm overflow-hidden group cursor-pointer"
                         disabled={isUploadingWorkspaceAvatar}
                       >
                         {workspace.avatar_url ? (
@@ -563,7 +563,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                       />
                       <span className="font-medium text-sm">{workspace.name}</span>
                     </div>
-                    <span className="px-3 py-1 text-xs border border-emerald-300 text-emerald-700 rounded-full bg-emerald-50">
+                    <span className="px-3 py-1 text-xs border border-[var(--accent-primary)]/50 text-[var(--accent-primary)] rounded-full bg-[var(--accent-primary)]/10">
                       Free plan
                     </span>
                   </div>
@@ -622,7 +622,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                           <tr key={member.id} className="border-t">
                             <td className="px-3 py-2.5">
                               <div className="flex items-center gap-2">
-                                <div className="h-6 w-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-[10px] font-medium overflow-hidden">
+                                <div className="h-6 w-6 rounded-full bg-[var(--accent-primary)]/20 flex items-center justify-center text-[var(--accent-primary)] text-[10px] font-medium overflow-hidden">
                                   {member.avatar_url ? (
                                     <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
                                   ) : (
@@ -694,7 +694,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                               value={inviteEmail}
                               onChange={(e) => setInviteEmail(e.target.value)}
                               placeholder="colleague@company.com"
-                              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
                             />
                           </div>
                           
@@ -748,7 +748,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                             type="button"
                             onClick={handleInvite}
                             disabled={isInviting || !inviteEmail}
-                            className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50"
+                            className="flex-1 px-4 py-2 bg-[var(--accent-primary)] text-white rounded-lg text-sm hover:bg-[var(--accent-primary-hover)] disabled:opacity-50"
                           >
                             {isInviting ? "Sending..." : "Send invitation"}
                           </button>
@@ -760,7 +760,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                   <button
                     type="button"
                     onClick={() => setShowInviteModal(true)}
-                    className="mt-3 w-full py-2.5 bg-emerald-600 text-white rounded-lg text-xs hover:bg-emerald-700 flex items-center justify-center gap-2"
+                    className="mt-3 w-full py-2.5 bg-[var(--accent-primary)] text-white rounded-lg text-xs hover:bg-[var(--accent-primary-hover)] flex items-center justify-center gap-2"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Add member
@@ -843,7 +843,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                   <button
                     type="button"
                     onClick={() => userAvatarInputRef.current?.click()}
-                    className="relative h-14 w-14 rounded-full bg-emerald-700 flex items-center justify-center text-white text-xl font-medium overflow-hidden group cursor-pointer flex-shrink-0"
+                    className="relative h-14 w-14 rounded-full bg-[var(--accent-primary-hover)] flex items-center justify-center text-white text-xl font-medium overflow-hidden group cursor-pointer flex-shrink-0"
                     disabled={isUploadingUserAvatar}
                   >
                     {userAvatar ? (
@@ -886,13 +886,13 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                           if (e.key === "Escape") setIsEditingUserName(false);
                         }}
                         autoFocus
-                        className="font-medium bg-transparent border-b border-emerald-500 outline-none text-sm"
+                        className="font-medium bg-transparent border-b border-[var(--accent-primary)] outline-none text-sm"
                       />
                     ) : (
                       <button
                         type="button"
                         onClick={startEditingUserName}
-                        className="font-medium hover:text-emerald-700 flex items-center gap-1 group cursor-pointer text-sm"
+                        className="font-medium hover:text-[var(--accent-primary)] flex items-center gap-1 group cursor-pointer text-sm"
                       >
                         <span>{userName || "User"}</span>
                         <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
@@ -927,7 +927,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                     }}
                     className={cn(
                       "relative w-11 h-6 rounded-full transition-colors",
-                      supportAccess ? "bg-emerald-600" : "bg-gray-200"
+                      supportAccess ? "bg-[var(--accent-primary)]" : "bg-gray-200"
                     )}
                   >
                     <div
@@ -952,7 +952,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                     <button
                       type="button"
                       onClick={markAllNotificationsRead}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 rounded-md"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--accent-primary-light)] hover:bg-[var(--accent-primary)]/10 rounded-md"
                     >
                       <CheckCheck className="h-4 w-4" />
                       Mark all as read
@@ -962,7 +962,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
 
                 {isLoadingNotifications ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent-primary)]" />
                   </div>
                 ) : notifications.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -976,7 +976,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                       const getIcon = () => {
                         switch (notification.action_type) {
                           case "upload":
-                            return <Upload className="h-4 w-4 text-emerald-600" />;
+                            return <Upload className="h-4 w-4 text-[var(--accent-primary-light)]" />;
                           case "folder_create":
                             return <FolderPlus className="h-4 w-4 text-blue-600" />;
                           case "folder_delete":
@@ -1012,7 +1012,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                             "flex items-start gap-3 p-3 rounded-lg border transition-colors",
                             notification.is_read
                               ? "bg-white border-gray-100"
-                              : "bg-emerald-50/50 border-emerald-100"
+                              : "bg-[var(--accent-primary)]/10/50 border-[var(--accent-primary)]/20"
                           )}
                         >
                           <div className="flex-shrink-0 mt-0.5">
@@ -1022,7 +1022,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm">{notification.title}</p>
                               {!notification.is_read && (
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                                <span className="w-2 h-2 rounded-full bg-[var(--accent-primary)]/100 flex-shrink-0" />
                               )}
                             </div>
                             {notification.message && (
@@ -1072,7 +1072,7 @@ export function SettingsModal({ open, onOpenChange, workspaceId }: SettingsModal
                     </div>
                     <button
                       type="button"
-                      className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm hover:bg-emerald-700"
+                      className="px-4 py-2 bg-[var(--accent-primary)] text-white rounded-md text-sm hover:bg-[var(--accent-primary-hover)]"
                     >
                       Upgrade
                     </button>

@@ -88,10 +88,10 @@ export default async function DocumentPage(props: DocumentPageProps) {
         </p>
       </header>
 
-      <div className="flex-1 grid gap-4 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.3fr)]">
-        <div className="border rounded-lg overflow-hidden bg-background">
+      <div className="flex-1 grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
+        <div className="border rounded-lg overflow-hidden bg-background h-[calc(100vh-12rem)]">
           {isPdf ? (
-            <PdfViewer url={signed} />
+            <PdfViewer url={signed} title={doc.title as string} />
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground p-4">
               <p>

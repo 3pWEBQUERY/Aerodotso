@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-3-flash-preview";
 
 // Action prompts for different AI operations
 const ACTION_PROMPTS: Record<string, string> = {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!ANTHROPIC_API_KEY) {
+    if (!GEMINI_API_KEY) {
       return NextResponse.json(
         { error: "AI service not configured" },
         { status: 500 }
@@ -42,29 +43,35 @@ export async function POST(request: NextRequest) {
       systemPrompt = `Process the following text according to user instructions. Only output the result, nothing else.`;
     }
 
-    // Call Claude Sonnet 4.5
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5-20250929",
-        max_tokens: 2000,
-        messages: [
-          {
-            role: "user",
-            content: `${systemPrompt}\n\nText:\n${text}`,
+    // Call Gemini 3 Flash
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `${systemPrompt}\n\nText:\n${text}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 4000,
           },
-        ],
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Claude API error:", errorText);
+      console.error("Gemini API error:", errorText);
       return NextResponse.json(
         { error: "AI processing failed" },
         { status: 500 }
@@ -72,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const result = data.content?.[0]?.text || "";
+    const result = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     return NextResponse.json({ result });
   } catch (error) {

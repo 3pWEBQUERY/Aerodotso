@@ -2,9 +2,9 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Home, LayoutTemplate, Star, MoreHorizontal, Share2, Grid3X3, Sparkles, Youtube, Save, Loader2, Users } from "lucide-react";
+import { Home, LayoutPanelLeft, Star, Share2, Grid3X3, Sparkles, Youtube, Save, Loader2, ArrowLeft } from "lucide-react";
+import { ItemHeaderActions } from "@/components/shared/item-header-actions";
 import Link from "next/link";
-import { CanvasToolbar } from "@/components/canvas/canvas-toolbar";
 import { SpatialCanvas } from "@/components/canvas/spatial-canvas";
 import { CanvasNode, CanvasConnection } from "@/lib/canvas/types";
 import { instantiateTemplate } from "@/lib/canvas/templates";
@@ -24,7 +24,7 @@ interface Canvas {
 }
 
 const TEMPLATES = [
-  { id: "study", name: "Study Partner", icon: Grid3X3, color: "text-emerald-600" },
+  { id: "study", name: "Study Partner", icon: Grid3X3, color: "text-[var(--accent-primary-light)]" },
   { id: "marketing", name: "Marketing Playground", icon: Sparkles, color: "text-violet-600" },
   { id: "youtube", name: "Youtube Content System", icon: Youtube, color: "text-red-600" },
 ];
@@ -36,12 +36,62 @@ export default function CanvasDetailPage() {
   
   const [canvas, setCanvas] = useState<Canvas | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTool, setActiveTool] = useState("select");
   const [isStarred, setIsStarred] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("Home");
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitleValue, setEditingTitleValue] = useState("");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Resolve fresh signed URLs for media nodes with mediaLibraryId
+  const resolveMediaUrls = useCallback(async (nodes: CanvasNode[]): Promise<CanvasNode[]> => {
+    // Collect all mediaLibraryIds from image and video nodes
+    const mediaIds: string[] = [];
+    nodes.forEach((node) => {
+      const data = node.data as any;
+      if ((node.type === 'image' || node.type === 'video' || node.type === 'document') && data.mediaLibraryId) {
+        mediaIds.push(data.mediaLibraryId);
+      }
+    });
+
+    if (mediaIds.length === 0) return nodes;
+
+    try {
+      // Fetch fresh signed URLs for all media
+      const res = await fetch('/api/documents/resolve-urls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentIds: mediaIds }),
+      });
+
+      if (!res.ok) return nodes;
+
+      const { urls } = await res.json();
+
+      // Update nodes with fresh URLs
+      return nodes.map((node) => {
+        const data = node.data as any;
+        if ((node.type === 'image' || node.type === 'video' || node.type === 'document') && data.mediaLibraryId && urls[data.mediaLibraryId]) {
+          return {
+            ...node,
+            data: {
+              ...data,
+              url: urls[data.mediaLibraryId],
+              thumbnail: urls[data.mediaLibraryId],
+            },
+          };
+        }
+        return node;
+      });
+    } catch (error) {
+      console.error('Failed to resolve media URLs:', error);
+      return nodes;
+    }
+  }, []);
 
   const fetchCanvas = useCallback(async () => {
     if (!canvasId) return;
@@ -49,21 +99,123 @@ export default function CanvasDetailPage() {
       const res = await fetch(`/api/canvas/${canvasId}`);
       if (res.ok) {
         const data = await res.json();
-        setCanvas(data.canvas);
+        const canvasData = data.canvas;
+        
+        // Resolve fresh URLs for media nodes
+        if (canvasData.data?.nodes && canvasData.data.nodes.length > 0) {
+          canvasData.data.nodes = await resolveMediaUrls(canvasData.data.nodes);
+        }
+        
+        setCanvas(canvasData);
         // Show welcome if canvas has no nodes
-        const hasNodes = data.canvas.data?.nodes && data.canvas.data.nodes.length > 0;
-        setShowWelcome(!hasNodes && !data.canvas.content);
+        const hasNodes = canvasData.data?.nodes && canvasData.data.nodes.length > 0;
+        setShowWelcome(!hasNodes && !canvasData.content);
       }
     } catch (error) {
       console.error("Failed to fetch canvas:", error);
     } finally {
       setLoading(false);
     }
-  }, [canvasId]);
+  }, [canvasId, resolveMediaUrls]);
+
+  // Fetch workspace name
+  useEffect(() => {
+    const fetchWorkspaceName = async () => {
+      if (!workspaceId) return;
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}`);
+        const data = await res.json();
+        if (data.workspace?.name) {
+          setWorkspaceName(data.workspace.name);
+        }
+      } catch (error) {
+        console.error("Failed to fetch workspace name:", error);
+      }
+    };
+    fetchWorkspaceName();
+  }, [workspaceId]);
 
   useEffect(() => {
     fetchCanvas();
   }, [fetchCanvas]);
+
+  // Toggle starred
+  const handleToggleStar = async () => {
+    if (!canvasId) return;
+    const newStarred = !isStarred;
+    setIsStarred(newStarred);
+    
+    try {
+      await fetch(`/api/canvas/${canvasId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_starred: newStarred }),
+      });
+    } catch (error) {
+      console.error("Failed to toggle star:", error);
+      setIsStarred(!newStarred);
+    }
+  };
+
+  // Inline title editing
+  const startEditingTitle = () => {
+    setEditingTitleValue(canvas?.name || "");
+    setIsEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
+  const saveEditingTitle = async () => {
+    if (!editingTitleValue.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const newTitle = editingTitleValue.trim();
+    setIsEditingTitle(false);
+    try {
+      await fetch(`/api/canvas/${canvasId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newTitle }),
+      });
+      setCanvas(prev => prev ? { ...prev, name: newTitle } : null);
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error("Failed to save title:", error);
+    }
+  };
+
+  const cancelEditingTitle = () => {
+    setIsEditingTitle(false);
+    setEditingTitleValue("");
+  };
+
+  // Move canvas to folder
+  const handleMove = async (folderId: string | null) => {
+    if (!canvasId) return;
+    try {
+      await fetch(`/api/canvas/${canvasId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder_id: folderId }),
+      });
+      setCurrentFolderId(folderId);
+    } catch (error) {
+      console.error("Failed to move canvas:", error);
+      throw error;
+    }
+  };
+
+  // Delete canvas
+  const handleDelete = async () => {
+    if (!canvasId) return;
+    try {
+      await fetch(`/api/canvas/${canvasId}`, { method: "DELETE" });
+      router.push(`/workspace/${workspaceId}`);
+    } catch (error) {
+      console.error("Failed to delete canvas:", error);
+      throw error;
+    }
+  };
 
   // Save canvas data
   const saveCanvas = useCallback(async (nodes: CanvasNode[], edges: CanvasConnection[]) => {
@@ -174,73 +326,94 @@ export default function CanvasDetailPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-white border-b">
-        <div className="flex items-center gap-2 text-sm">
+      <div className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-white">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => router.back()}
-            className="text-gray-400 hover:text-gray-600"
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            ←
+            <ArrowLeft className="h-4 w-4 text-gray-500" />
           </button>
-          <Link href={`/workspace/${workspaceId}`} className="flex items-center gap-1 text-gray-500 hover:text-gray-700">
-            <Home className="h-3.5 w-3.5" />
-            <span>Home</span>
-          </Link>
-          <span className="text-gray-300">/</span>
-          <div className="flex items-center gap-1.5 text-gray-700">
-            <LayoutTemplate className="h-3.5 w-3.5" />
-            <span className="font-medium">{canvas.name}</span>
+          
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-sm">
+            <Link
+              href={`/workspace/${workspaceId}`}
+              className="flex items-center gap-1 text-gray-500 hover:text-gray-700"
+            >
+              <Home className="h-3.5 w-3.5" />
+              <span>{workspaceName}</span>
+            </Link>
+            <span className="text-gray-300">/</span>
+            <div className="flex items-center gap-1 text-gray-700">
+              <LayoutPanelLeft className="h-3.5 w-3.5" />
+              {isEditingTitle ? (
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={editingTitleValue}
+                  onChange={(e) => setEditingTitleValue(e.target.value)}
+                  onBlur={saveEditingTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEditingTitle();
+                    if (e.key === "Escape") cancelEditingTitle();
+                  }}
+                  className="font-medium bg-white border border-[var(--accent-primary)] rounded px-1 py-0.5 outline-none min-w-[100px]"
+                />
+              ) : (
+                <span 
+                  className="font-medium cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+                  onClick={startEditingTitle}
+                  title="Click to rename"
+                >
+                  {canvas.name || "Untitled Canvas"}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-3 text-sm">
-          {/* Save Status */}
-          <div className="flex items-center gap-2 text-gray-400 text-xs">
-            {isSaving ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-3 w-3" />
-                <span>{formatLastSaved()}</span>
-              </>
-            )}
-          </div>
+
+        {/* Right side actions */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-400">
+            {isSaving ? "Saving..." : formatLastSaved()}
+          </span>
           <button
             type="button"
-            className="text-gray-500 hover:text-gray-700"
+            onClick={handleToggleStar}
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            Share
+            <Star className={`h-4 w-4 ${isStarred ? "text-amber-500 fill-amber-500" : "text-gray-400"}`} />
           </button>
-          <button
-            type="button"
-            onClick={() => setIsStarred(!isStarred)}
-            className={isStarred ? "text-amber-500" : "text-gray-400 hover:text-gray-600"}
-          >
-            <Star className={`h-4 w-4 ${isStarred ? "fill-current" : ""}`} />
-          </button>
-          <button
-            type="button"
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
+          
+          <ItemHeaderActions
+            itemId={canvasId}
+            itemType="canvas"
+            itemTitle={canvas.name}
+            workspaceId={workspaceId}
+            isStarred={isStarred}
+            currentFolderId={currentFolderId}
+            createdAt={canvas.created_at}
+            updatedAt={canvas.updated_at}
+            onToggleStar={handleToggleStar}
+            onStartRename={startEditingTitle}
+            onMove={handleMove}
+            onDelete={handleDelete}
+          />
         </div>
-      </header>
+      </div>
 
       {/* Canvas Area */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative document-canvas-surface">
         {showWelcome ? (
           /* Welcome Screen */
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             {/* Icon */}
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
-              <Share2 className="h-6 w-6 text-emerald-600" />
+            <div className="w-12 h-12 rounded-xl bg-[var(--accent-primary)]/10 flex items-center justify-center mb-4">
+              <Share2 className="h-6 w-6 text-[var(--accent-primary-light)]" />
             </div>
             
             {/* Title */}
@@ -274,7 +447,7 @@ export default function CanvasDetailPage() {
               <button
                 type="button"
                 onClick={startBlank}
-                className="text-emerald-600 font-medium hover:underline"
+                className="text-[var(--accent-primary-light)] font-medium hover:underline"
               >
                 blank canvas
               </button>
@@ -293,8 +466,6 @@ export default function CanvasDetailPage() {
         )}
       </div>
 
-      {/* Toolbar */}
-      <CanvasToolbar activeTool={activeTool} onToolChange={setActiveTool} />
     </div>
   );
 }

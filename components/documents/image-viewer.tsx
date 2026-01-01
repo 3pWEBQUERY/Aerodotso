@@ -708,7 +708,7 @@ export function ImageDocumentViewer({
                 }}
               >
                 <div className="mb-1 flex items-center justify-center">
-                  <div className="h-3 w-3 rounded-xl border-2 border-background bg-emerald-400 shadow" />
+                  <div className="h-3 w-3 rounded-xl border-2 border-background bg-[var(--accent-primary)] shadow" />
                 </div>
                 <div className="relative rounded-2xl bg-neutral-900/95 px-3 py-2 text-[11px] text-neutral-50 shadow-xl">
                   <button
@@ -741,7 +741,7 @@ export function ImageDocumentViewer({
                     <Button
                       type="button"
                       size="sm"
-                      className="h-6 rounded-xl bg-emerald-500 px-3 text-[11px] text-white hover:bg-emerald-600"
+                      className="h-6 rounded-xl bg-[var(--accent-primary)]/100 px-3 text-[11px] text-white hover:bg-[var(--accent-primary)]"
                       onClick={handleExitCommentMode}
                       disabled={!draftText.trim()}
                     >

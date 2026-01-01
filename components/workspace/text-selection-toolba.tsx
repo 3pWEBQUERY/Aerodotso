@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Sparkles,
   Bold,
   Italic,
   Underline,
@@ -34,6 +33,30 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+
+// AI Icon (white version)
+const AIIcon = ({ className }: { className?: string }) => (
+  <svg 
+    className={className}
+    viewBox="0 0 122.3 122.28" 
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <g>
+      <g>
+        <path d="M62.84,76.47c-2.1,0-3.79-1.7-3.79-3.79v-15.4c0-2.13-1.73-3.86-3.86-3.86s-3.86,1.73-3.86,3.86v15.4c0,2.1-1.7,3.79-3.79,3.79s-3.79-1.7-3.79-3.79v-15.4c0-6.31,5.14-11.45,11.45-11.45s11.45,5.14,11.45,11.45v15.4c0,2.1-1.7,3.79-3.79,3.79Z"/>
+        <path d="M62.84,68.09h-15.32c-2.1,0-3.79-1.7-3.79-3.79s1.7-3.79,3.79-3.79h15.32c2.1,0,3.79,1.7,3.79,3.79s-1.7,3.79-3.79,3.79Z"/>
+        <path d="M74.8,76.47c-2.1,0-3.79-1.7-3.79-3.79v-23.06c0-2.1,1.7-3.79,3.79-3.79s3.79,1.7,3.79,3.79v23.06c0,2.1-1.7,3.79-3.79,3.79Z"/>
+      </g>
+      <path d="M105.4,64.94c-1.25,0-2.48-.62-3.2-1.76-5.25-8.25-11.73-16.26-19.27-23.8C53.5,9.96,22.48,1.45,11.97,11.96c-6.46,6.47-5.74,19.93,1.95,36.02,.9,1.89,.1,4.16-1.79,5.06-1.89,.9-4.15,.1-5.06-1.79C-2.19,31.84-2.36,15.57,6.61,6.59c15.21-15.21,51.09-3.17,81.68,27.42,7.93,7.93,14.76,16.37,20.31,25.09,1.13,1.77,.6,4.11-1.16,5.24-.63,.4-1.34,.59-2.03,.59Z"/>
+      <path d="M97.83,122.25c-17.92,0-42.51-12.7-63.79-33.98-7.93-7.93-14.76-16.37-20.31-25.09-1.13-1.77-.6-4.11,1.16-5.24,1.77-1.13,4.12-.6,5.24,1.16,5.25,8.25,11.73,16.26,19.27,23.8,24.15,24.15,53.14,37,67.43,29.93,1.87-.93,4.15-.17,5.08,1.71,.93,1.88,.16,4.15-1.71,5.08-3.56,1.77-7.75,2.61-12.38,2.61Z"/>
+      <path d="M113.03,116.81c-.97,0-1.94-.37-2.68-1.11-1.48-1.48-1.48-3.88,0-5.37,1.22-1.21,2.19-2.69,2.9-4.38,.81-1.93,3.04-2.84,4.96-2.04,1.93,.81,2.84,3.03,2.04,4.96-1.09,2.61-2.62,4.91-4.54,6.82-.74,.74-1.71,1.11-2.68,1.11Z"/>
+      <path d="M116.75,111.21c-.49,0-.99-.1-1.46-.3-1.93-.81-2.84-3.03-2.03-4.96,3.05-7.27,1.28-18.81-4.85-31.64-.9-1.89-.1-4.16,1.79-5.06,1.89-.9,4.16-.1,5.06,1.79,7.16,15,8.94,28.44,5,37.84-.61,1.45-2.02,2.33-3.5,2.33Z"/>
+      <path d="M61.17,109.17c-1.25,0-2.48-.62-3.2-1.76-1.13-1.77-.6-4.11,1.16-5.24,8.25-5.25,16.26-11.73,23.8-19.27,29.42-29.42,37.93-60.44,27.42-70.95-6.28-6.28-19.33-5.75-34.9,1.42-1.91,.88-4.16,.04-5.03-1.86-.88-1.9-.05-4.16,1.86-5.03,18.85-8.69,34.69-8.65,43.44,.11,15.21,15.21,3.17,51.09-27.42,81.68-7.93,7.93-16.37,14.76-25.09,20.31-.63,.4-1.34,.59-2.03,.59Z"/>
+      <path d="M24.64,122.28c-7.46,0-13.65-2.2-18.03-6.58-15.21-15.21-3.17-51.09,27.42-81.68,7.77-7.77,16.04-14.5,24.59-19.98,1.76-1.14,4.11-.62,5.24,1.14,1.13,1.76,.62,4.11-1.14,5.24-8.08,5.2-15.93,11.58-23.32,18.97-13.47,13.47-23.63,28.54-28.63,42.44-4.59,12.77-4.15,23.16,1.2,28.51,6.14,6.14,18.85,5.76,34-1.01,1.91-.85,4.16,0,5.01,1.91s0,4.16-1.91,5.01c-9,4.03-17.3,6.03-24.43,6.03Z"/>
+    </g>
+  </svg>
+);
 
 interface TextSelectionToolbarProps {
   containerRef: React.RefObject<HTMLElement | null>;
@@ -329,8 +352,8 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
     >
       {showLinkInput ? (
         // Link input
-        <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-lg border border-gray-200">
-          <Link2 className="h-4 w-4 text-gray-400" />
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+          <Link2 className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           <input
             ref={linkInputRef}
             type="text"
@@ -344,13 +367,13 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
                 setLinkUrl("");
               }
             }}
-            className="flex-1 text-sm bg-transparent outline-none placeholder:text-gray-400 min-w-[200px]"
+            className="flex-1 text-sm bg-transparent outline-none text-[var(--workspace-sidebar-foreground)] placeholder:text-[var(--workspace-sidebar-muted-foreground)] min-w-[200px]"
           />
           <button
             type="button"
             onClick={applyLink}
             disabled={!linkUrl.trim()}
-            className="px-2 py-1 bg-emerald-600 text-white rounded text-xs font-medium hover:bg-emerald-700 disabled:opacity-50"
+            className="px-2 py-1 bg-[var(--accent-primary-light)] text-white rounded text-xs font-medium hover:bg-[var(--accent-primary)] disabled:opacity-50"
           >
             Add
           </button>
@@ -360,32 +383,32 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
               setShowLinkInput(false);
               setLinkUrl("");
             }}
-            className="p-1 hover:bg-gray-100 rounded"
+            className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded"
           >
-            <X className="h-3 w-3 text-gray-500" />
+            <X className="h-3 w-3 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
         </div>
       ) : !showAIMenu ? (
         // Main formatting toolbar
-        <div className="flex items-center gap-0.5 px-2 py-1.5 bg-white rounded-lg shadow-lg border border-gray-200">
+        <div className="flex items-center gap-0.5 px-2 py-1.5 rounded-lg shadow-lg border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
           {/* AI Button */}
           <button
             type="button"
             onClick={() => setShowAIMenu(true)}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="AI Actions"
           >
-            <Sparkles className="h-4 w-4 text-gray-600" />
+            <AIIcon className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--workspace-sidebar-border)' }} />
 
           {/* Heading dropdown */}
           <Popover onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded text-sm text-gray-700"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-sm text-[var(--workspace-sidebar-foreground)]"
               >
                 <Type className="h-4 w-4" />
                 <span>{HEADING_OPTIONS.find(h => h.id === currentHeading)?.label || "Heading 1"}</span>
@@ -409,58 +432,58 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
             </PopoverContent>
           </Popover>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--workspace-sidebar-border)' }} />
 
           {/* Formatting buttons */}
           <button
             type="button"
             onClick={() => applyFormatting("**")}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="Bold (**text**)"
           >
-            <Bold className="h-4 w-4 text-gray-600" />
+            <Bold className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
           <button
             type="button"
             onClick={() => applyFormatting("*")}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="Italic (*text*)"
           >
-            <Italic className="h-4 w-4 text-gray-600" />
+            <Italic className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
           <button
             type="button"
             onClick={() => applyFormatting("<u>", "</u>")}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="Underline"
           >
-            <Underline className="h-4 w-4 text-gray-600" />
+            <Underline className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
           <button
             type="button"
             onClick={() => applyFormatting("~~")}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="Strikethrough (~~text~~)"
           >
-            <Strikethrough className="h-4 w-4 text-gray-600" />
+            <Strikethrough className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
           <button
             type="button"
             onClick={() => applyFormatting("`")}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="Code (`text`)"
           >
-            <Code className="h-4 w-4 text-gray-600" />
+            <Code className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--workspace-sidebar-border)' }} />
 
           {/* Alignment dropdown */}
           <Popover onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded text-sm text-gray-700"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-sm text-[var(--workspace-sidebar-foreground)]"
               >
                 {currentAlignment === "left" && <AlignLeft className="h-4 w-4" />}
                 {currentAlignment === "center" && <AlignCenter className="h-4 w-4" />}
@@ -495,14 +518,14 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
             </PopoverContent>
           </Popover>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--workspace-sidebar-border)' }} />
 
           {/* Font style dropdown */}
           <Popover onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded text-sm text-gray-700"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-sm text-[var(--workspace-sidebar-foreground)]"
               >
                 <span className="font-medium">A</span>
                 <span>Default</span>
@@ -548,41 +571,41 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
             </PopoverContent>
           </Popover>
 
-          <div className="w-px h-5 bg-gray-200 mx-1" />
+          <div className="w-px h-5 mx-1" style={{ backgroundColor: 'var(--workspace-sidebar-border)' }} />
 
           {/* Additional actions */}
           <button
             type="button"
             onClick={() => applyFormatting("  ", "")}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="Indent"
           >
-            <IndentIncrease className="h-4 w-4 text-gray-600" />
+            <IndentIncrease className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
           <button
             type="button"
             onClick={() => setShowLinkInput(true)}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="Add Link"
           >
-            <Link2 className="h-4 w-4 text-gray-600" />
+            <Link2 className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
           <button
             type="button"
             onClick={() => applyFormatting("> ")}
-            className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded transition-colors"
             title="Quote"
           >
-            <MessageSquare className="h-4 w-4 text-gray-600" />
+            <MessageSquare className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
           </button>
         </div>
       ) : (
         // AI Menu
-        <div className="w-80 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+        <div className="w-80 rounded-lg shadow-lg border border-[var(--workspace-sidebar-border)] overflow-hidden" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
           {/* AI Input */}
-          <div className="p-3 border-b border-gray-100">
+          <div className="p-3 border-b" style={{ borderColor: 'var(--workspace-sidebar-border)' }}>
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <AIIcon className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)] flex-shrink-0" />
               <input
                 ref={aiInputRef}
                 type="text"
@@ -590,22 +613,22 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 onKeyDown={handleCustomPrompt}
-                className="flex-1 text-sm bg-transparent outline-none placeholder:text-gray-400"
+                className="flex-1 text-sm bg-transparent outline-none text-[var(--workspace-sidebar-foreground)] placeholder:text-[var(--workspace-sidebar-muted-foreground)]"
                 disabled={isProcessing}
               />
-              {isProcessing && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+              {isProcessing && <Loader2 className="h-4 w-4 animate-spin text-[var(--workspace-sidebar-muted-foreground)]" />}
             </div>
           </div>
 
           {/* AI Result */}
           {aiResult && (
-            <div className="p-3 border-b border-gray-100 bg-gray-50">
-              <p className="text-sm text-gray-700 whitespace-pre-wrap mb-3">{aiResult}</p>
+            <div className="p-3 border-b" style={{ borderColor: 'var(--workspace-sidebar-border)', backgroundColor: 'var(--workspace-sidebar-muted)' }}>
+              <p className="text-sm text-[var(--workspace-sidebar-foreground)] whitespace-pre-wrap mb-3">{aiResult}</p>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={applyAIResult}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent-primary-light)] text-white rounded-lg text-xs font-medium hover:bg-[var(--accent-primary)] transition-colors"
                 >
                   <Check className="h-3 w-3" />
                   Apply
@@ -616,7 +639,7 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
                     setAiResult(null);
                     setShowAIMenu(false);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors text-[var(--workspace-sidebar-foreground)]" style={{ borderColor: 'var(--workspace-sidebar-border)' }}
                 >
                   <X className="h-3 w-3" />
                   Cancel
@@ -634,9 +657,9 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
                   type="button"
                   onClick={() => handleAIOptionClick(option.id)}
                   disabled={isProcessing}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--workspace-sidebar-foreground)] hover:bg-[var(--workspace-sidebar-muted)] transition-colors disabled:opacity-50"
                 >
-                  <option.icon className="h-4 w-4 text-gray-400" />
+                  <option.icon className="h-4 w-4 text-[var(--workspace-sidebar-muted-foreground)]" />
                   {option.label}
                 </button>
               ))}
@@ -644,7 +667,7 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
           )}
 
           {/* Back button */}
-          <div className="p-2 border-t border-gray-100">
+          <div className="p-2 border-t" style={{ borderColor: 'var(--workspace-sidebar-border)' }}>
             <button
               type="button"
               onClick={() => {
@@ -652,7 +675,7 @@ export function TextSelectionToolbar({ containerRef, onTextReplace }: TextSelect
                 setAiResult(null);
                 setAiPrompt("");
               }}
-              className="w-full text-xs text-gray-500 hover:text-gray-700 transition-colors"
+              className="w-full text-xs text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)] transition-colors"
             >
               ← Back to formatting
             </button>

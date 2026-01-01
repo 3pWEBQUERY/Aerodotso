@@ -26,6 +26,13 @@ interface CanvasStore extends CanvasState {
   deleteNodes: (nodeIds: string[]) => void;
   duplicateNode: (nodeId: string) => CanvasNode | null;
   moveNode: (nodeId: string, position: { x: number; y: number }) => void;
+  
+  // Folder operations
+  addNodeToFolder: (nodeId: string, folderId: string) => void;
+  removeNodeFromFolder: (nodeId: string, folderId: string) => void;
+  getFolderAtPosition: (x: number, y: number, excludeNodeId?: string) => CanvasNode | undefined;
+  toggleFolderOpen: (folderId: string) => void;
+  isFolderOpen: (folderId: string) => boolean;
 
   // Edge operations
   addEdge: (edge: CanvasConnection) => void;
@@ -233,6 +240,240 @@ export const useCanvasStore = create<CanvasStore>()(
               node.id === nodeId ? { ...node, position } : node
             ),
           }));
+        },
+
+        // ================================================================
+        // FOLDER OPERATIONS
+        // ================================================================
+
+        addNodeToFolder: (nodeId, folderId) => {
+          set((state) => {
+            const folder = state.nodes.find(n => n.id === folderId);
+            if (!folder) return state;
+            
+            return {
+              nodes: state.nodes.map((node) => {
+                // Update folder's childNodeIds
+                if (node.id === folderId && node.type === 'folder') {
+                  const childNodeIds = (node.data as any).childNodeIds || [];
+                  if (!childNodeIds.includes(nodeId)) {
+                    return {
+                      ...node,
+                      data: {
+                        ...node.data,
+                        childNodeIds: [...childNodeIds, nodeId],
+                        updatedAt: new Date(),
+                      } as any,
+                    };
+                  }
+                }
+                // Hide the node by marking it as inside folder
+                if (node.id === nodeId) {
+                  return {
+                    ...node,
+                    hidden: true,
+                    data: {
+                      ...node.data,
+                      parentFolderId: folderId,
+                      updatedAt: new Date(),
+                    } as any,
+                  };
+                }
+                return node;
+              }),
+            };
+          });
+        },
+
+        removeNodeFromFolder: (nodeId, folderId) => {
+          set((state) => {
+            const folder = state.nodes.find(n => n.id === folderId);
+            if (!folder) return state;
+            
+            return {
+              nodes: state.nodes.map((node) => {
+                // Update folder's childNodeIds
+                if (node.id === folderId && node.type === 'folder') {
+                  const childNodeIds = (node.data as any).childNodeIds || [];
+                  return {
+                    ...node,
+                    data: {
+                      ...node.data,
+                      childNodeIds: childNodeIds.filter((id: string) => id !== nodeId),
+                      updatedAt: new Date(),
+                    } as any,
+                  };
+                }
+                // Unhide the node
+                if (node.id === nodeId) {
+                  const { parentFolderId, ...restData } = node.data as any;
+                  return {
+                    ...node,
+                    hidden: false,
+                    position: {
+                      x: folder.position.x + 250,
+                      y: folder.position.y,
+                    },
+                    data: {
+                      ...restData,
+                      updatedAt: new Date(),
+                    } as any,
+                  };
+                }
+                return node;
+              }),
+            };
+          });
+        },
+
+        getFolderAtPosition: (x, y, excludeNodeId) => {
+          const state = get();
+          return state.nodes.find((node) => {
+            if (node.type !== 'folder') return false;
+            if (excludeNodeId && node.id === excludeNodeId) return false;
+            
+            const nodeWidth = (node.data as any).width || 200;
+            const nodeHeight = (node.data as any).height || 240;
+            
+            return (
+              x >= node.position.x &&
+              x <= node.position.x + nodeWidth &&
+              y >= node.position.y &&
+              y <= node.position.y + nodeHeight
+            );
+          });
+        },
+
+        toggleFolderOpen: (folderId) => {
+          const state = get();
+          const folder = state.nodes.find(n => n.id === folderId);
+          if (!folder || folder.type !== 'folder') return;
+          
+          const isCurrentlyOpen = (folder.data as any).isOpen || false;
+          const childNodeIds = (folder.data as any).childNodeIds || [];
+          
+          if (isCurrentlyOpen) {
+            // Close folder: animate nodes back to folder, then hide them
+            const folderX = folder.position.x;
+            const folderY = folder.position.y;
+            
+            // First, mark nodes as closing and move them toward the folder
+            set((state) => ({
+              nodes: state.nodes.map((node) => {
+                if (node.id === folderId) {
+                  return {
+                    ...node,
+                    data: { ...node.data, isOpen: false, updatedAt: new Date() } as any,
+                  };
+                }
+                if (childNodeIds.includes(node.id)) {
+                  return {
+                    ...node,
+                    className: 'folder-item-closing',
+                    data: { 
+                      ...node.data, 
+                      isClosingToFolder: true,
+                      updatedAt: new Date() 
+                    } as any,
+                  };
+                }
+                return node;
+              }),
+            }));
+            
+            // After animation completes, hide the nodes
+            setTimeout(() => {
+              set((state) => ({
+                nodes: state.nodes.map((node) => {
+                  if (childNodeIds.includes(node.id)) {
+                    const { isClosingToFolder, isAnimatingFromFolder, ...restData } = node.data as any;
+                    return {
+                      ...node,
+                      hidden: true,
+                      className: undefined,
+                      position: { x: folderX, y: folderY },
+                      data: { ...restData, updatedAt: new Date() } as any,
+                    };
+                  }
+                  return node;
+                }),
+              }));
+            }, 350); // Match animation duration
+          } else {
+            // Open folder: show child nodes in a clean 2-column grid to the right
+            const folderX = folder.position.x;
+            const folderY = folder.position.y;
+            const folderWidth = (folder.data as any).width || 200;
+            const folderHeight = (folder.data as any).height || 240;
+            
+            const childNodes = state.nodes.filter(n => childNodeIds.includes(n.id));
+            const positions: { [id: string]: { x: number; y: number } } = {};
+            
+            // Clean 2-column grid layout like in the reference
+            const startX = folderX + folderWidth + 50; // Gap from folder
+            const startY = folderY - 150; // Start above folder level
+            const columnWidth = 250; // Width of each column
+            const rowHeight = 350; // Height of each row
+            const gap = 20; // Gap between items
+            
+            childNodes.forEach((childNode, index) => {
+              const col = index % 2; // 2 columns
+              const row = Math.floor(index / 2);
+              
+              const x = startX + (col * (columnWidth + gap));
+              const y = startY + (row * (rowHeight + gap));
+              
+              positions[childNode.id] = { x, y };
+            });
+            
+            set((state) => ({
+              nodes: state.nodes.map((node) => {
+                if (node.id === folderId) {
+                  return {
+                    ...node,
+                    data: { ...node.data, isOpen: true, updatedAt: new Date() } as any,
+                  };
+                }
+                if (childNodeIds.includes(node.id) && positions[node.id]) {
+                  return {
+                    ...node,
+                    hidden: false,
+                    className: 'folder-item-animate',
+                    position: positions[node.id],
+                    data: { 
+                      ...node.data, 
+                      isAnimatingFromFolder: true,
+                      updatedAt: new Date() 
+                    } as any,
+                  };
+                }
+                return node;
+              }),
+            }));
+            
+            // Clear animation class after animation completes
+            setTimeout(() => {
+              set((state) => ({
+                nodes: state.nodes.map((node) => {
+                  if (childNodeIds.includes(node.id)) {
+                    const { isAnimatingFromFolder, ...restData } = node.data as any;
+                    return {
+                      ...node,
+                      className: undefined,
+                      data: { ...restData, updatedAt: new Date() } as any,
+                    };
+                  }
+                  return node;
+                }),
+              }));
+            }, 600); // Match animation duration
+          }
+        },
+
+        isFolderOpen: (folderId) => {
+          const state = get();
+          const folder = state.nodes.find(n => n.id === folderId);
+          return folder ? (folder.data as any).isOpen || false : false;
         },
 
         // ================================================================

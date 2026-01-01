@@ -761,128 +761,6 @@ export default function WorkspaceChatPage() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
-      <aside className="w-56 border-r text-sm flex flex-col bg-gray-50/50">
-        {/* New Chat Button */}
-        <div className="p-3">
-          <button
-            onClick={handleNewChat}
-            className="w-full flex items-center gap-2 px-3 py-2 bg-white border rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            <Pencil className="h-4 w-4" />
-            New Chat
-          </button>
-        </div>
-
-        {/* My Chats */}
-        <div className="px-3 pb-2">
-          <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <Sparkles className="h-4 w-4" />
-            My Chats
-          </button>
-        </div>
-
-        {/* Chat History */}
-        <div className="flex-1 overflow-y-auto px-3 space-y-4">
-          {Object.entries(groupedSessions).map(([group, groupSessions]) => (
-            <div key={group}>
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                {group}
-              </p>
-              <div className="space-y-0.5">
-                {groupSessions.map((session) => (
-                  <div
-                    key={session.id}
-                    className={`group relative flex items-center rounded-md text-xs transition-colors ${
-                      activeSessionId === session.id
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {editingTitleId === session.id ? (
-                      <div className="flex-1 flex items-center gap-2 px-2 py-1">
-                        <MessageCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                        <input
-                          type="text"
-                          value={editingTitleValue}
-                          onChange={(e) => setEditingTitleValue(e.target.value)}
-                          onBlur={() => handleTitleBlur(session.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              updateSessionTitle(session.id, editingTitleValue);
-                            } else if (e.key === "Escape") {
-                              e.preventDefault();
-                              cancelEditing();
-                            }
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex-1 bg-white border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
-                          autoFocus
-                        />
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setActiveSessionId(session.id)}
-                        onDoubleClick={() => startEditingTitle(session.id, session.title)}
-                        className="flex-1 flex items-center gap-2 px-2 py-1.5 text-left min-w-0"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="truncate max-w-[100px]">{session.title}</span>
-                      </button>
-                    )}
-                    {/* Hover action buttons */}
-                    {editingTitleId !== session.id && (
-                      <div className="hidden group-hover:flex items-center gap-0.5 pr-1 flex-shrink-0">
-                        <button
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            startEditingTitle(session.id, session.title);
-                          }}
-                          className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
-                          title="Umbenennen"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openInPanel(session.id);
-                          }}
-                          className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
-                          title="Im Panel öffnen"
-                        >
-                          <PanelRight className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteSession(session.id);
-                          }}
-                          className="p-1 hover:bg-red-100 rounded text-gray-500 hover:text-red-600"
-                          title="Löschen"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Trash */}
-        <div className="border-t px-3 py-3">
-          <button className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
-            <Trash2 className="h-3.5 w-3.5" />
-            Trash
-          </button>
-        </div>
-      </aside>
-
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col">
         {/* Header */}
@@ -905,7 +783,7 @@ export default function WorkspaceChatPage() {
                 }
               }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white border rounded px-2 py-0.5 text-sm outline-none focus:ring-1 focus:ring-emerald-500"
+              className="bg-white border rounded px-2 py-0.5 text-sm outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
               autoFocus
             />
           ) : (
@@ -979,14 +857,14 @@ export default function WorkspaceChatPage() {
                       {selectedWorkspaceItems.map((item) => (
                         <Tooltip key={item.id}>
                           <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 bg-emerald-50 rounded-lg px-2 py-1 text-xs text-emerald-700 cursor-default">
+                            <div className="flex items-center gap-1 bg-[var(--accent-primary)]/10 rounded-lg px-2 py-1 text-xs text-[var(--accent-primary)] cursor-default">
                               {item.type === "image" ? <ImageIcon className="h-3 w-3" /> : 
                                item.type === "note" ? <FileText className="h-3 w-3" /> : 
                                <Link2 className="h-3 w-3" />}
                               <span className="truncate max-w-[120px]">{item.title || item.name || item.url}</span>
                               <button
                                 onClick={() => removeSelectedItem(item.id)}
-                                className="text-emerald-500 hover:text-red-500"
+                                className="text-[var(--accent-primary-light)] hover:text-red-500"
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -1063,7 +941,7 @@ export default function WorkspaceChatPage() {
                         onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                         className={`p-1.5 rounded-md transition-colors ${
                           webSearchEnabled 
-                            ? "bg-emerald-100 text-emerald-600" 
+                            ? "bg-[var(--accent-primary)]/20 text-[var(--accent-primary-light)]" 
                             : "hover:bg-gray-100 text-gray-500"
                         }`}
                         title={webSearchEnabled ? "Web-Suche aktiviert" : "Web-Suche aktivieren"}
@@ -1076,7 +954,7 @@ export default function WorkspaceChatPage() {
                       <Popover open={modelDropdownOpen} onOpenChange={setModelDropdownOpen}>
                         <PopoverTrigger asChild>
                           <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-md">
-                            <Sparkles className="h-4 w-4 text-emerald-600" />
+                            <Sparkles className="h-4 w-4 text-[var(--accent-primary-light)]" />
                             {selectedModel.name}
                             {modelDropdownOpen ? (
                               <ChevronUp className="h-3.5 w-3.5" />
@@ -1114,7 +992,7 @@ export default function WorkspaceChatPage() {
                                     }}
                                     className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md ${
                                       selectedModel.id === model.id
-                                        ? "bg-emerald-50 text-emerald-700"
+                                        ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]"
                                         : "hover:bg-gray-100"
                                     }`}
                                   >
@@ -1136,7 +1014,7 @@ export default function WorkspaceChatPage() {
                       <button
                         onClick={() => handleSendMessage()}
                         disabled={!inputValue.trim() || isLoading}
-                        className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 bg-[var(--accent-primary)] text-white rounded-full hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <ArrowUp className="h-4 w-4" />
                       </button>
@@ -1164,7 +1042,7 @@ export default function WorkspaceChatPage() {
                           onClick={() => setWorkspaceBrowserTab(tab)}
                           className={`flex-1 py-3 text-sm font-medium transition-colors ${
                             workspaceBrowserTab === tab
-                              ? "text-emerald-600 border-b-2 border-emerald-600"
+                              ? "text-[var(--accent-primary-light)] border-b-2 border-[var(--accent-primary)]"
                               : "text-gray-500 hover:text-gray-700"
                           }`}
                         >
@@ -1188,14 +1066,14 @@ export default function WorkspaceChatPage() {
                                 onClick={() => toggleWorkspaceItem({ ...item, type: "image" })}
                                 className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                                   selectedWorkspaceItems.find(i => i.id === item.id)
-                                    ? "border-emerald-500 ring-2 ring-emerald-200"
+                                    ? "border-[var(--accent-primary)] ring-2 ring-[var(--accent-primary)]/30"
                                     : "border-transparent hover:border-gray-300"
                                 }`}
                               >
                                 <img src={item.previewUrl || item.file_url} alt={item.name} className="w-full h-full object-cover" />
                                 {selectedWorkspaceItems.find(i => i.id === item.id) && (
-                                  <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
-                                    <Check className="h-6 w-6 text-emerald-600" />
+                                  <div className="absolute inset-0 bg-[var(--accent-primary)]/100/20 flex items-center justify-center">
+                                    <Check className="h-6 w-6 text-[var(--accent-primary-light)]" />
                                   </div>
                                 )}
                               </button>
@@ -1215,7 +1093,7 @@ export default function WorkspaceChatPage() {
                                 onClick={() => toggleWorkspaceItem({ ...item, type: "note" })}
                                 className={`relative rounded-2xl bg-white hover:shadow-md transition-all cursor-pointer overflow-hidden shadow-sm border h-44 flex flex-col text-left ${
                                   selectedWorkspaceItems.find(i => i.id === item.id)
-                                    ? "ring-2 ring-emerald-500 ring-offset-2 border-emerald-500"
+                                    ? "ring-2 ring-[var(--accent-primary)] ring-offset-2 border-[var(--accent-primary)]"
                                     : "border-gray-100 hover:border-gray-200"
                                 }`}
                               >
@@ -1225,7 +1103,7 @@ export default function WorkspaceChatPage() {
                                 )}
                                 {/* Selection indicator */}
                                 {selectedWorkspaceItems.find(i => i.id === item.id) && (
-                                  <div className="absolute top-2 right-2 w-5 h-5 bg-emerald-500 rounded-md flex items-center justify-center z-10">
+                                  <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--accent-primary)]/100 rounded-md flex items-center justify-center z-10">
                                     <Check className="h-3 w-3 text-white" />
                                   </div>
                                 )}
@@ -1255,7 +1133,7 @@ export default function WorkspaceChatPage() {
                                 onClick={() => toggleWorkspaceItem({ ...item, type: "link" })}
                                 className={`relative h-44 overflow-hidden bg-gray-900 rounded-2xl transition-all cursor-pointer ${
                                   selectedWorkspaceItems.find(i => i.id === item.id)
-                                    ? "ring-2 ring-emerald-500 ring-offset-2"
+                                    ? "ring-2 ring-[var(--accent-primary)] ring-offset-2"
                                     : "hover:ring-2 hover:ring-gray-300"
                                 }`}
                               >
@@ -1269,7 +1147,7 @@ export default function WorkspaceChatPage() {
                                 )}
                                 {/* Selection indicator */}
                                 {selectedWorkspaceItems.find(i => i.id === item.id) && (
-                                  <div className="absolute top-2 left-2 w-5 h-5 bg-emerald-500 rounded-md flex items-center justify-center z-10">
+                                  <div className="absolute top-2 left-2 w-5 h-5 bg-[var(--accent-primary)]/100 rounded-md flex items-center justify-center z-10">
                                     <Check className="h-3 w-3 text-white" />
                                   </div>
                                 )}
@@ -1300,7 +1178,7 @@ export default function WorkspaceChatPage() {
                       </span>
                       <button
                         onClick={() => setWorkspaceBrowserOpen(false)}
-                        className="px-4 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
+                        className="px-4 py-1.5 bg-[var(--accent-primary)] text-white text-sm rounded-lg hover:bg-[var(--accent-primary-hover)]"
                       >
                         Fertig
                       </button>
@@ -1330,7 +1208,7 @@ export default function WorkspaceChatPage() {
                           <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border">
                             <FolderSearch className="h-4 w-4" />
                             <span>Browsed your files</span>
-                            <Check className="h-4 w-4 text-emerald-600 ml-auto" />
+                            <Check className="h-4 w-4 text-[var(--accent-primary-light)] ml-auto" />
                           </div>
                         </div>
                       )}
@@ -1353,7 +1231,7 @@ export default function WorkspaceChatPage() {
                           onClick={() => handleRate(message.id, "up")}
                           className={`p-1.5 hover:bg-gray-100 rounded-md transition-colors ${
                             message.rating === "up"
-                              ? "text-emerald-600 bg-emerald-50"
+                              ? "text-[var(--accent-primary-light)] bg-[var(--accent-primary)]/10"
                               : "text-gray-400 hover:text-gray-600"
                           }`}
                           title="Gute Antwort"
@@ -1389,9 +1267,9 @@ export default function WorkspaceChatPage() {
               {isLoading && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <div className="animate-pulse flex items-center gap-1">
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-2 h-2 bg-[var(--accent-primary)]/100 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-[var(--accent-primary)]/100 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-[var(--accent-primary)]/100 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                   <span>Thinking...</span>
                 </div>
@@ -1472,7 +1350,7 @@ export default function WorkspaceChatPage() {
                                   }}
                                   className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md ${
                                     selectedModel.id === model.id
-                                      ? "bg-emerald-50 text-emerald-700"
+                                      ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]"
                                       : "hover:bg-gray-100"
                                   }`}
                                 >
@@ -1494,7 +1372,7 @@ export default function WorkspaceChatPage() {
                     <button
                       onClick={() => handleSendMessage()}
                       disabled={!inputValue.trim() || isLoading}
-                      className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 bg-[var(--accent-primary)] text-white rounded-full hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ArrowUp className="h-4 w-4" />
                     </button>
@@ -1524,7 +1402,7 @@ export default function WorkspaceChatPage() {
           >
             {/* Resize Handle */}
             <div
-              className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-emerald-500/50 z-10"
+              className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--accent-primary)]/100/50 z-10"
               onMouseDown={() => handleMouseDown(panel.id)}
             />
             
@@ -1576,13 +1454,13 @@ export default function WorkspaceChatPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="flex items-center gap-1.5 text-sm text-gray-600">
-                            <Sparkles className="h-4 w-4 text-emerald-600" />
+                            <Sparkles className="h-4 w-4 text-[var(--accent-primary-light)]" />
                             {selectedModel.name}
                           </span>
                           <button
                             onClick={() => handleSendMessage(session.id, panelInputs[session.id])}
                             disabled={!(panelInputs[session.id]?.trim()) || panelLoading[session.id]}
-                            className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="p-2 bg-[var(--accent-primary)] text-white rounded-full hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <ArrowUp className="h-4 w-4" />
                           </button>
@@ -1614,7 +1492,7 @@ export default function WorkspaceChatPage() {
                                   <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border">
                                     <FolderSearch className="h-4 w-4" />
                                     <span>Browsed your files</span>
-                                    <Check className="h-4 w-4 text-emerald-600 ml-auto" />
+                                    <Check className="h-4 w-4 text-[var(--accent-primary-light)] ml-auto" />
                                   </div>
                                 </div>
                               )}
@@ -1637,7 +1515,7 @@ export default function WorkspaceChatPage() {
                                   onClick={() => handleRate(message.id, "up")}
                                   className={`p-1.5 hover:bg-gray-100 rounded-md transition-colors ${
                                     message.rating === "up"
-                                      ? "text-emerald-600 bg-emerald-50"
+                                      ? "text-[var(--accent-primary-light)] bg-[var(--accent-primary)]/10"
                                       : "text-gray-400 hover:text-gray-600"
                                   }`}
                                   title="Gute Antwort"
@@ -1673,9 +1551,9 @@ export default function WorkspaceChatPage() {
                       {panelLoading[session.id] && (
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                           <div className="animate-pulse flex items-center gap-1">
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                            <span className="w-2 h-2 bg-[var(--accent-primary)]/100 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                            <span className="w-2 h-2 bg-[var(--accent-primary)]/100 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                            <span className="w-2 h-2 bg-[var(--accent-primary)]/100 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                           </div>
                           <span>Thinking...</span>
                         </div>
@@ -1711,13 +1589,13 @@ export default function WorkspaceChatPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="flex items-center gap-1.5 text-sm text-gray-600">
-                              <Sparkles className="h-4 w-4 text-emerald-600" />
+                              <Sparkles className="h-4 w-4 text-[var(--accent-primary-light)]" />
                               {selectedModel.name}
                             </span>
                             <button
                               onClick={() => handleSendMessage(session.id, panelInputs[session.id])}
                               disabled={!(panelInputs[session.id]?.trim()) || panelLoading[session.id]}
-                              className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="p-2 bg-[var(--accent-primary)] text-white rounded-full hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <ArrowUp className="h-4 w-4" />
                             </button>

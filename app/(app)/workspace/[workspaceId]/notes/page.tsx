@@ -8,6 +8,10 @@ import { SelectionActionBar } from "@/components/workspace/selection-action-bar"
 import { AnimatedFolder } from "@/components/workspace/animated-folder";
 import { PageToolbar, ViewMode, SortOption } from "@/components/workspace/page-toolbar";
 import { NoteCard } from "@/components/workspace/note-card";
+import { NoteCardList } from "@/components/workspace/note-card-list";
+import { NoteCardCompact } from "@/components/workspace/note-card-compact";
+import { DraggableItem } from "@/components/workspace/draggable-item";
+import { DroppableFolder } from "@/components/workspace/droppable-folder";
 import { usePanels } from "@/contexts/panel-context";
 
 interface Note {
@@ -42,16 +46,16 @@ function EmptyState({ workspaceId, onCreate }: { workspaceId: string; onCreate: 
       >
         <div className={`
           w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200
-          ${isHovered ? "bg-emerald-50 ring-2 ring-emerald-200" : "bg-gray-100"}
+          ${isHovered ? "bg-[var(--accent-primary)]/10 ring-2 ring-[var(--accent-primary)]/30" : "bg-gray-100"}
         `}>
           <StickyNote className={`
             h-7 w-7 transition-colors duration-200
-            ${isHovered ? "text-emerald-600" : "text-gray-400"}
+            ${isHovered ? "text-[var(--accent-primary-light)]" : "text-gray-400"}
           `} />
         </div>
         {isHovered && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
-            <Plus className="h-3 w-3 text-emerald-600" />
+          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--accent-primary)]/20 flex items-center justify-center">
+            <Plus className="h-3 w-3 text-[var(--accent-primary-light)]" />
           </div>
         )}
       </button>
@@ -172,8 +176,8 @@ export default function WorkspaceNotesPage() {
   };
 
   // Selection handlers
-  const toggleNoteSelection = (noteId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleNoteSelection = (noteId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setSelectedNotes(prev => {
       const next = new Set(prev);
       if (next.has(noteId)) next.delete(noteId);
@@ -225,6 +229,22 @@ export default function WorkspaceNotesPage() {
     }
   };
 
+  // Handle drag-and-drop to folder
+  const handleDropToFolder = async (folderId: string, itemId: string, itemType: string) => {
+    if (itemType !== "note") return;
+    try {
+      await fetch(`/api/notes/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder_id: folderId }),
+      });
+      setNotes(prev => prev.map(n => 
+        n.id === itemId ? { ...n, folder_id: folderId } : n
+      ));
+    } catch (error) {
+      console.error("Failed to move note to folder:", error);
+    }
+  };
 
   // Sort notes (use notes in current folder)
   const sortedNotes = [...notesInCurrentFolder].sort((a, b) => {
@@ -235,22 +255,71 @@ export default function WorkspaceNotesPage() {
     return sortAsc ? -cmp : cmp;
   });
 
-  // Filter notes by search query
-  const filteredNotes = sortedNotes.filter(note => 
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.content?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Search results state
+  const [searchResults, setSearchResults] = useState<Note[] | null>(null);
 
-  // Handle search
-  const handleSearch = () => {
-    // For now, just filter client-side
+  // AI Search - auto-trigger with debounce
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim() || !workspaceId) {
+      setSearchResults(null);
+      return;
+    }
+
     setIsSearching(true);
-    setTimeout(() => setIsSearching(false), 300);
-  };
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: query,
+          workspaceId,
+          searchTypes: ["semantic", "text"],
+          limit: 50,
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.results) {
+        // Filter only notes from results
+        const noteResults: Note[] = data.results
+          .filter((r: any) => r.result_type === "note")
+          .map((r: any) => ({
+            id: r.document_id,
+            title: r.title,
+            content: r.content || "",
+            created_at: r.created_at || new Date().toISOString(),
+            is_starred: false,
+          }));
+        setSearchResults(noteResults);
+      }
+    } catch (error) {
+      console.error("Search failed:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [workspaceId]);
 
-  const clearSearch = () => {
-    setSearchQuery("");
-  };
+  // Auto-search with debounce when query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+
+    const debounceTimer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, handleSearch]);
+
+  // Use search results if available, otherwise filter locally
+  const filteredNotes = searchResults !== null 
+    ? searchResults 
+    : sortedNotes.filter(note => 
+        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        note.content?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -292,7 +361,7 @@ export default function WorkspaceNotesPage() {
           pageType="notes"
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
-          onSearch={handleSearch}
+          onSearch={() => handleSearch(searchQuery)}
           isSearching={isSearching}
           sortBy={sortBy}
           onSortByChange={setSortBy}
@@ -310,7 +379,7 @@ export default function WorkspaceNotesPage() {
             <button
               type="button"
               onClick={createNote}
-              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
+              className="flex items-center gap-2 px-3 py-1.5 bg-[var(--accent-primary)] text-white text-sm rounded-lg hover:bg-[var(--accent-primary-hover)]"
             >
               <Plus className="h-4 w-4" />
               New Note
@@ -336,53 +405,81 @@ export default function WorkspaceNotesPage() {
             )
           ) : (
             <>
-              {/* Flex wrap layout like Media page */}
-              <div className="flex flex-wrap gap-4">
-                {/* Subfolders (folders in current directory) */}
-                {currentSubfolders.map((folder) => {
-                  // Count notes in this folder
-                  const notesInFolder = notes.filter(n => n.folder_id === folder.id);
-                  return (
-                    <Link 
-                      key={folder.id} 
-                      href={`/workspace/${workspaceId}/notes?folder=${folder.id}`} 
-                      className="w-44 cursor-pointer block group"
-                    >
-                      <div className="h-56 rounded-xl bg-gradient-to-b from-amber-50 to-orange-50 border border-amber-200/50 overflow-hidden">
-                        <AnimatedFolder 
-                          name={folder.name} 
-                          fileCount={notesInFolder.length}
-                          previewFiles={notesInFolder.slice(0, 3).map(n => ({
+              {/* GRID VIEW */}
+              {viewMode === "grid" && (
+                <div className="flex flex-wrap gap-4">
+                  {/* Subfolders (folders in current directory) - droppable */}
+                  {currentSubfolders.map((folder) => {
+                    // Count notes in this folder
+                    const notesInFolder = notes.filter(n => n.folder_id === folder.id);
+                    return (
+                      <DroppableFolder
+                        key={folder.id}
+                        folderId={folder.id}
+                        folderName={folder.name}
+                        workspaceId={workspaceId || ""}
+                        fileCount={notesInFolder.length}
+                        previewFiles={notesInFolder.slice(0, 3).map(n => ({
+                          type: "note",
+                          name: stripHtml(n.title) || "Untitled"
+                        }))}
+                        onDrop={handleDropToFolder}
+                        acceptTypes={["note"]}
+                      />
+                    );
+                  })}
+
+                  {/* Notes - draggable */}
+                  {filteredNotes.map((note) => (
+                    <DraggableItem key={note.id} itemId={note.id} itemType="note">
+                      <div className="w-44">
+                        <NoteCard
+                          note={note}
+                          isSelected={selectedNotes.has(note.id)}
+                          onSelect={(e) => toggleNoteSelection(note.id, e)}
+                          onClick={() => router.push(`/workspace/${workspaceId}/notes/${note.id}`)}
+                          onOpenInPanel={() => openPanel({
                             type: "note",
-                            name: stripHtml(n.title) || "Untitled"
-                          }))}
+                            itemId: note.id,
+                            title: stripHtml(note.title) || "Untitled",
+                          })}
                         />
                       </div>
-                      <p className="text-[10px] truncate flex items-center gap-1 text-muted-foreground mt-2 group-hover:text-amber-600">
-                        <FolderClosed className="h-3 w-3 text-amber-500" />
-                        {folder.name}
-                      </p>
-                    </Link>
-                  );
-                })}
+                    </DraggableItem>
+                  ))}
+                </div>
+              )}
 
-                {/* Notes */}
-                {filteredNotes.map((note) => (
-                  <div key={note.id} className="w-44">
-                    <NoteCard
+              {/* LIST VIEW */}
+              {viewMode === "list" && (
+                <div className="space-y-2">
+                  {filteredNotes.map((note) => (
+                    <NoteCardList
+                      key={note.id}
                       note={note}
+                      workspaceId={workspaceId || ""}
                       isSelected={selectedNotes.has(note.id)}
-                      onSelect={(e) => toggleNoteSelection(note.id, e)}
-                      onClick={() => router.push(`/workspace/${workspaceId}/notes/${note.id}`)}
-                      onOpenInPanel={() => openPanel({
-                        type: "note",
-                        itemId: note.id,
-                        title: stripHtml(note.title) || "Untitled",
-                      })}
+                      onSelect={() => toggleNoteSelection(note.id)}
                     />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
+
+              {/* COMPACT VIEW */}
+              {viewMode === "compact" && (
+                <div className="space-y-0">
+                  {filteredNotes.map((note, i) => (
+                    <div key={note.id} className={i > 0 ? "mt-1" : ""}>
+                      <NoteCardCompact
+                        note={note}
+                        workspaceId={workspaceId || ""}
+                        isSelected={selectedNotes.has(note.id)}
+                        onSelect={() => toggleNoteSelection(note.id)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>

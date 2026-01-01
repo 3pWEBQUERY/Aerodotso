@@ -49,7 +49,7 @@ const NODE_COLORS: Record<string, string> = {
   document: "text-orange-500",
   note: "text-amber-500",
   "ai-chat": "text-violet-500",
-  "ai-generator": "text-emerald-500",
+  "ai-generator": "text-[var(--accent-primary-light)]",
   url: "text-indigo-500",
   group: "text-gray-500",
 };
@@ -150,7 +150,7 @@ export function NodeInspector({ isOpen, onClose }: NodeInspectorProps) {
             value={localLabel}
             onChange={(e) => handleLabelChange(e.target.value)}
             onBlur={handleLabelBlur}
-            className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)]"
           />
         </div>
 
@@ -166,7 +166,7 @@ export function NodeInspector({ isOpen, onClose }: NodeInspectorProps) {
             onChange={(e) => setLocalTags(e.target.value)}
             onBlur={handleTagsBlur}
             placeholder="tag1, tag2, tag3"
-            className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)]"
           />
         </div>
 
@@ -435,17 +435,17 @@ function AIGeneratorFields({ data }: { data: AIGeneratorNodeData }) {
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="p-2 bg-emerald-50 rounded">
-          <span className="text-emerald-600 font-medium">Provider:</span>
+        <div className="p-2 bg-[var(--accent-primary)]/10 rounded">
+          <span className="text-[var(--accent-primary-light)] font-medium">Provider:</span>
           <br />
-          <span className="text-emerald-700">{data.provider}</span>
+          <span className="text-[var(--accent-primary)]">{data.provider}</span>
         </div>
         <div className="p-2 bg-gray-50 rounded">
           <span className="text-gray-500">Status:</span>
           <br />
           <span className={
             data.status === "generating" ? "text-amber-600" :
-            data.status === "completed" ? "text-emerald-600" :
+            data.status === "completed" ? "text-[var(--accent-primary-light)]" :
             data.status === "error" ? "text-red-600" :
             "text-gray-600"
           }>
@@ -459,9 +459,9 @@ function AIGeneratorFields({ data }: { data: AIGeneratorNodeData }) {
         {data.generationHistory?.length || 0} images
       </div>
       {data.prompt && (
-        <div className="p-2 bg-emerald-50 rounded text-xs">
-          <span className="text-emerald-600 font-medium">Current Prompt:</span>
-          <p className="text-emerald-700 mt-1 line-clamp-2">{data.prompt}</p>
+        <div className="p-2 bg-[var(--accent-primary)]/10 rounded text-xs">
+          <span className="text-[var(--accent-primary-light)] font-medium">Current Prompt:</span>
+          <p className="text-[var(--accent-primary)] mt-1 line-clamp-2">{data.prompt}</p>
         </div>
       )}
     </div>

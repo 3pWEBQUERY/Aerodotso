@@ -114,8 +114,8 @@ export function NotesSidebar({ workspaceId }: NotesSidebarProps) {
   };
 
   return (
-    <aside className="w-44 flex-shrink-0 border-r text-sm flex flex-col overflow-hidden bg-background">
-      <header className="flex items-center justify-between px-3 py-2 border-b">
+    <aside className="w-64 flex-shrink-0 rounded-xl text-sm flex flex-col overflow-hidden border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+      <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--workspace-sidebar-border)] text-[var(--workspace-sidebar-foreground)]">
         <span className="font-medium">Notes</span>
       </header>
 
@@ -123,7 +123,7 @@ export function NotesSidebar({ workspaceId }: NotesSidebarProps) {
         {notes.map((note) => (
           <div
             key={note.id}
-            className="group flex items-center rounded-md hover:bg-muted mb-0.5 overflow-hidden"
+            className="group flex items-center rounded-md hover:bg-[var(--workspace-sidebar-muted)] mb-0.5 overflow-hidden"
           >
             {editingId === note.id ? (
               <div className="flex-1 flex items-center gap-2 px-2 py-1">
@@ -142,7 +142,7 @@ export function NotesSidebar({ workspaceId }: NotesSidebarProps) {
                       setEditingId(null);
                     }
                   }}
-                  className="flex-1 bg-white border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="flex-1 bg-[var(--workspace-sidebar-muted)] border border-[var(--workspace-sidebar-border)] rounded px-1 py-0.5 text-xs text-[var(--workspace-sidebar-foreground)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
                 />
@@ -151,7 +151,7 @@ export function NotesSidebar({ workspaceId }: NotesSidebarProps) {
               <>
                 <Link
                   href={`/workspace/${workspaceId}/notes/${note.id}`}
-                  className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground"
+                  className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-[var(--workspace-sidebar-muted-foreground)]"
                 >
                   <StickyNote className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate max-w-[80px]">{stripHtml(note.title) || "Untitled"}</span>
@@ -161,7 +161,7 @@ export function NotesSidebar({ workspaceId }: NotesSidebarProps) {
                   <button
                     type="button"
                     onClick={(e) => startEditingNote(note, e)}
-                    className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                    className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                     title="Rename"
                   >
                     <Pencil className="h-3 w-3" />
@@ -169,7 +169,7 @@ export function NotesSidebar({ workspaceId }: NotesSidebarProps) {
                   <button
                     type="button"
                     onClick={(e) => copyNoteLink(note.id, e)}
-                    className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                    className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                     title="Copy Link"
                   >
                     <Copy className="h-3 w-3" />
@@ -177,7 +177,7 @@ export function NotesSidebar({ workspaceId }: NotesSidebarProps) {
                   <button
                     type="button"
                     onClick={(e) => deleteNote(note.id, e)}
-                    className="p-1 hover:bg-red-100 rounded text-gray-500 hover:text-red-600"
+                    className="p-1 hover:bg-red-500/20 rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-red-400"
                     title="Delete"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -189,14 +189,10 @@ export function NotesSidebar({ workspaceId }: NotesSidebarProps) {
         ))}
         
         {notes.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">No notes yet</p>
+          <p className="text-xs text-[var(--workspace-sidebar-muted-foreground)] text-center py-4">No notes yet</p>
         )}
       </div>
 
-      <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-        <Trash2 className="h-3.5 w-3.5" />
-        <span>Trash</span>
-      </div>
     </aside>
   );
 }

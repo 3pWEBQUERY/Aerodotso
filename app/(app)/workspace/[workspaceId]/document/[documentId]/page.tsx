@@ -1,15 +1,18 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Home, Pencil, Download, Maximize2, Star, MoreHorizontal, FileText, ImageIcon, File, ChevronRight, Sparkles, Trash2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ArrowLeft, Home, Pencil, Download, Maximize2, Star, FileText, ImageIcon, File, Sparkles, Trash2, X } from "lucide-react";
+import { ItemHeaderActions } from "@/components/shared/item-header-actions";
 import Link from "next/link";
 import { DocumentToolbar } from "@/components/documents/document-toolbar";
 import { AddMediaPopover } from "@/components/documents/add-media-popover";
 import { AIImagePanel } from "@/components/documents/ai-image-panel";
 import { ImageWithConnector } from "@/components/documents/image-with-connector";
+import { ResizableVideo } from "@/components/documents/resizable-video";
 import { DraggableElement, ElementBounds } from "@/components/documents/draggable-element";
 import { DocumentFloatingToolbar } from "@/components/documents/document-floating-toolbar";
+import { ResizablePdfViewer } from "@/components/documents/resizable-pdf-viewer";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -41,6 +44,9 @@ export default function DocumentViewPage() {
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
   const [workspaceName, setWorkspaceName] = useState("Workspace");
   const [loading, setLoading] = useState(true);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitleValue, setEditingTitleValue] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
   
   // Toolbar state
   const [zoom, setZoom] = useState(100);
@@ -54,7 +60,18 @@ export default function DocumentViewPage() {
   
   // AI Panel state
   const [showAIPanel, setShowAIPanel] = useState(false);
-  const [connectedImageIds, setConnectedImageIds] = useState<Set<string>>(new Set());
+  
+  // AI Panel connections with source side info
+  interface AIConnection {
+    imageId: string;
+    elementId: string;
+    sourceSide: "top" | "right" | "bottom" | "left";
+    targetSide: "top" | "right" | "bottom" | "left";
+  }
+  const [aiConnections, setAIConnections] = useState<AIConnection[]>([]);
+  
+  // Helper to get connected image IDs (for backward compatibility)
+  const connectedImageIds = new Set(aiConnections.map(c => c.imageId));
   
   // Generated images state (output from AI)
   interface GeneratedImage {
@@ -73,6 +90,17 @@ export default function DocumentViewPage() {
     imageId: string | null;
   }>({ visible: false, x: 0, y: 0, imageId: null });
   
+  // Context menu state for added media images (track by index for duplicates)
+  const [mediaContextMenu, setMediaContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    mediaIndex: number | null;
+  }>({ visible: false, x: 0, y: 0, mediaIndex: null });
+  
+  // Swap mode state - track index to swap only the specific duplicate
+  const [swapMediaIndex, setSwapMediaIndex] = useState<number | null>(null);
+  
   // Element bounds for drawing connection lines (n8n-style)
   const [elementBounds, setElementBounds] = useState<Record<string, ElementBounds>>({});
   
@@ -83,13 +111,240 @@ export default function DocumentViewPage() {
     message: string;
   }>({ open: false, success: false, message: "" });
   
+  // Selected element state for showing connection points
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  
+  // Element-to-element connections
+  interface ElementConnection {
+    sourceId: string;
+    targetId: string;
+    sourceSide: "top" | "right" | "bottom" | "left";
+    targetSide: "top" | "right" | "bottom" | "left";
+  }
+  const [elementConnections, setElementConnections] = useState<ElementConnection[]>([]);
+  const [pendingConnection, setPendingConnection] = useState<{ sourceId: string; sourceSide: "top" | "right" | "bottom" | "left" } | null>(null);
+  
+  // Visual offsets so lines end in the center of connection dots
+  const CONNECTOR_SPACING = 12; // distance from element edge to dot top/left
+  const CONNECTOR_SIZE = 10; // w-2.5 => 10px (tailwind)
+  const getConnectorPoint = (bounds: ElementBounds, side: "top" | "right" | "bottom" | "left") => {
+    switch (side) {
+      case "top":
+        return {
+          x: bounds.x + bounds.width / 2,
+          y: bounds.y - CONNECTOR_SPACING + CONNECTOR_SIZE / 2,
+        };
+      case "right":
+        return {
+          x: bounds.x + bounds.width + CONNECTOR_SPACING - CONNECTOR_SIZE / 2,
+          y: bounds.y + bounds.height / 2,
+        };
+      case "bottom":
+        return {
+          x: bounds.x + bounds.width / 2,
+          y: bounds.y + bounds.height + CONNECTOR_SPACING - CONNECTOR_SIZE / 2,
+        };
+      case "left":
+      default:
+        return {
+          x: bounds.x - CONNECTOR_SPACING + CONNECTOR_SIZE / 2,
+          y: bounds.y + bounds.height / 2,
+        };
+    }
+  };
+  
+  // Drag connection state for drawing temporary connection line
+  const [dragConnection, setDragConnection] = useState<{
+    sourceId: string;
+    sourceSide: "top" | "right" | "bottom" | "left";
+    mouseX: number;
+    mouseY: number;
+  } | null>(null);
+  
+  // Check if mouse is near an element (for showing connection points)
+  const getElementIdNearMouse = useCallback((mouseX: number, mouseY: number, excludeId: string): string | null => {
+    const container = window.document.querySelector('[data-draggable-id="main-image"]')?.parentElement;
+    const containerRect = container?.getBoundingClientRect();
+    const offsetX = containerRect?.left || 0;
+    const offsetY = containerRect?.top || 0;
+    
+    const relativeX = mouseX - offsetX;
+    const relativeY = mouseY - offsetY;
+    
+    const proximityThreshold = 100; // pixels
+    
+    for (const [id, bounds] of Object.entries(elementBounds)) {
+      if (id === excludeId) continue;
+      
+      // Check if mouse is within proximity of this element
+      const nearLeft = relativeX >= bounds.x - proximityThreshold;
+      const nearRight = relativeX <= bounds.x + bounds.width + proximityThreshold;
+      const nearTop = relativeY >= bounds.y - proximityThreshold;
+      const nearBottom = relativeY <= bounds.y + bounds.height + proximityThreshold;
+      
+      if (nearLeft && nearRight && nearTop && nearBottom) {
+        return id;
+      }
+    }
+    return null;
+  }, [elementBounds]);
+  
+  // Element that should show connection points due to drag proximity
+  const nearbyElementId = dragConnection 
+    ? getElementIdNearMouse(dragConnection.mouseX, dragConnection.mouseY, dragConnection.sourceId)
+    : null;
+  
+  // Handle element selection
+  const handleElementSelect = useCallback((id: string) => {
+    setSelectedElementId(prev => prev === id ? null : id);
+  }, []);
+  
+  // Helper to get imageId from elementId at drag time (needs current addedMedia)
+  const getImageIdFromElementIdAtDragTime = useCallback((elementId: string, currentAddedMedia: Document[]) => {
+    if (elementId === "main-image") return documentId;
+    if (elementId.startsWith("media-")) {
+      const indexStr = elementId.replace("media-", "");
+      const index = parseInt(indexStr, 10);
+      if (!isNaN(index) && index >= 0 && index < currentAddedMedia.length) {
+        return currentAddedMedia[index].id;
+      }
+    }
+    return null;
+  }, [documentId]);
+
+  // Handle connection drag start
+  const handleConnectionDragStart = useCallback((elementId: string, side: "top" | "right" | "bottom" | "left", e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const startSourceId = elementId;
+    
+    setDragConnection({
+      sourceId: elementId,
+      sourceSide: side,
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+    });
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      setDragConnection(prev => prev ? {
+        ...prev,
+        mouseX: moveEvent.clientX,
+        mouseY: moveEvent.clientY,
+      } : null);
+    };
+    
+    const handleMouseUp = (upEvent: MouseEvent) => {
+      // Check if we're over a connection point or element
+      const target = window.document.elementFromPoint(upEvent.clientX, upEvent.clientY);
+      const targetConnectionPoint = target?.closest('[data-connection-side]') as HTMLElement | null;
+      const explicitTargetSide = targetConnectionPoint?.getAttribute('data-connection-side') as "top" | "right" | "bottom" | "left" | null;
+      const targetElement = target?.closest('[data-draggable-id]');
+      
+      if (targetElement) {
+        const targetId = targetElement.getAttribute('data-draggable-id');
+        
+        if (targetId && targetId !== startSourceId) {
+          // If dropping on AI panel, connect the image (and its connected cluster) to AI
+          if (targetId === 'ai-panel') {
+            // Get imageId using current addedMedia state
+            setAddedMedia(currentAddedMedia => {
+              const imageId = getImageIdFromElementIdAtDragTime(startSourceId, currentAddedMedia);
+              if (imageId) {
+                // Determine panel target side - prefer explicit, else relative to source
+                const panelBounds = elementBounds["ai-panel"];
+                const sourceBounds = elementBounds[startSourceId];
+                let panelTargetSide: "top" | "right" | "bottom" | "left" = explicitTargetSide || "left";
+
+                if (!explicitTargetSide && panelBounds && sourceBounds) {
+                  const sourceCenter = { x: sourceBounds.x + sourceBounds.width / 2, y: sourceBounds.y + sourceBounds.height / 2 };
+                  const targetCenter = { x: panelBounds.x + panelBounds.width / 2, y: panelBounds.y + panelBounds.height / 2 };
+                  const dx = sourceCenter.x - targetCenter.x;
+                  const dy = sourceCenter.y - targetCenter.y;
+
+                  if (Math.abs(dx) > Math.abs(dy)) {
+                    panelTargetSide = dx > 0 ? "right" : "left";
+                  } else {
+                    panelTargetSide = dy > 0 ? "bottom" : "top";
+                  }
+                }
+
+                setAIConnections(prev => {
+                  // Check by elementId to allow same image in different positions
+                  const exists = prev.some(c => c.elementId === startSourceId);
+                  if (exists) return prev;
+                  return [...prev, { imageId, elementId: startSourceId, sourceSide: side, targetSide: panelTargetSide }];
+                });
+                // Also connect all linked elements in the cluster to the AI panel
+                addAIConnectionsForCluster(startSourceId, panelTargetSide);
+                setShowAIPanel(true);
+              }
+              return currentAddedMedia; // Don't modify state
+            });
+          } else {
+            // Element-to-element connection
+            // Determine the best target side based on relative position
+            const sourceBounds = elementBounds[startSourceId];
+            const targetBounds = elementBounds[targetId];
+            
+            if (sourceBounds && targetBounds) {
+              // Prefer the explicit connection point the user hovered, otherwise fall back to geometric side
+              let targetSide: "top" | "right" | "bottom" | "left" = explicitTargetSide || "left";
+              
+              if (!explicitTargetSide) {
+                // Determine target side based on where the source is relative to target
+                const sourceCenter = { x: sourceBounds.x + sourceBounds.width / 2, y: sourceBounds.y + sourceBounds.height / 2 };
+                const targetCenter = { x: targetBounds.x + targetBounds.width / 2, y: targetBounds.y + targetBounds.height / 2 };
+                
+                const dx = sourceCenter.x - targetCenter.x;
+                const dy = sourceCenter.y - targetCenter.y;
+                
+                if (Math.abs(dx) > Math.abs(dy)) {
+                  targetSide = dx > 0 ? "right" : "left";
+                } else {
+                  targetSide = dy > 0 ? "bottom" : "top";
+                }
+              }
+              
+              // Add connection (avoid duplicates)
+              setElementConnections(prev => {
+                const exists = prev.some(c => 
+                  (c.sourceId === startSourceId && c.targetId === targetId) ||
+                  (c.sourceId === targetId && c.targetId === startSourceId)
+                );
+                if (exists) return prev;
+                return [...prev, {
+                  sourceId: startSourceId,
+                  targetId: targetId,
+                  sourceSide: side,
+                  targetSide: targetSide,
+                }];
+              });
+            }
+          }
+        }
+      }
+      
+      setDragConnection(null);
+      window.document.removeEventListener('mousemove', handleMouseMove);
+      window.document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    window.document.addEventListener('mousemove', handleMouseMove);
+    window.document.addEventListener('mouseup', handleMouseUp);
+  // Note: addAIConnectionsForCluster is defined later but will be available when callback executes
+  }, [documentId, elementBounds, getImageIdFromElementIdAtDragTime]);
+  
   const handleBoundsChange = useCallback((id: string, bounds: ElementBounds) => {
     setElementBounds(prev => ({ ...prev, [id]: bounds }));
   }, []);
   
-  // Close context menu when clicking elsewhere
+  // Close context menus when clicking elsewhere
   useEffect(() => {
-    const handleClick = () => setContextMenu(prev => ({ ...prev, visible: false }));
+    const handleClick = () => {
+      setContextMenu(prev => ({ ...prev, visible: false }));
+      setMediaContextMenu(prev => ({ ...prev, visible: false }));
+    };
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, []);
@@ -98,12 +353,104 @@ export default function DocumentViewPage() {
   const handleContextMenu = (e: React.MouseEvent, imageId: string) => {
     e.preventDefault();
     e.stopPropagation();
+    setMediaContextMenu(prev => ({ ...prev, visible: false }));
     setContextMenu({
       visible: true,
       x: e.clientX,
       y: e.clientY,
       imageId,
     });
+  };
+  
+  // Handle right-click on added media image
+  const handleMediaContextMenu = (e: React.MouseEvent, mediaIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(prev => ({ ...prev, visible: false }));
+    setMediaContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      mediaIndex,
+    });
+  };
+  
+  // Delete added media (by index to handle duplicates)
+  const handleDeleteMedia = () => {
+    if (mediaContextMenu.mediaIndex === null) return;
+    const indexToDelete = mediaContextMenu.mediaIndex;
+    const elementIdToDelete = `media-${indexToDelete}`;
+    // Remove only the specific instance by index
+    setAddedMedia(prev => prev.filter((_, idx) => idx !== indexToDelete));
+    // Also remove any connections for this specific element
+    setAIConnections(prev => prev.filter(c => c.elementId !== elementIdToDelete));
+    setElementConnections(prev => prev.filter(c => 
+      c.sourceId !== elementIdToDelete && 
+      c.targetId !== elementIdToDelete
+    ));
+    // Update element IDs for items after the deleted one
+    setElementConnections(prev => prev.map(c => ({
+      ...c,
+      sourceId: c.sourceId.startsWith("media-") ? (() => {
+        const idx = parseInt(c.sourceId.replace("media-", ""), 10);
+        return !isNaN(idx) && idx > indexToDelete ? `media-${idx - 1}` : c.sourceId;
+      })() : c.sourceId,
+      targetId: c.targetId.startsWith("media-") ? (() => {
+        const idx = parseInt(c.targetId.replace("media-", ""), 10);
+        return !isNaN(idx) && idx > indexToDelete ? `media-${idx - 1}` : c.targetId;
+      })() : c.targetId,
+    })));
+    setAIConnections(prev => prev.map(c => ({
+      ...c,
+      elementId: c.elementId.startsWith("media-") ? (() => {
+        const idx = parseInt(c.elementId.replace("media-", ""), 10);
+        return !isNaN(idx) && idx > indexToDelete ? `media-${idx - 1}` : c.elementId;
+      })() : c.elementId,
+    })));
+    setMediaContextMenu(prev => ({ ...prev, visible: false }));
+  };
+  
+  // Duplicate added media
+  const handleDuplicateMedia = () => {
+    if (mediaContextMenu.mediaIndex === null) return;
+    const mediaToDuplicate = addedMedia[mediaContextMenu.mediaIndex];
+    if (mediaToDuplicate) {
+      // Add a duplicate - same document but treated as new instance
+      setAddedMedia(prev => [...prev, mediaToDuplicate]);
+    }
+    setMediaContextMenu(prev => ({ ...prev, visible: false }));
+  };
+  
+  // Start swap media flow
+  const handleSwapMedia = () => {
+    if (mediaContextMenu.mediaIndex === null) return;
+    setSwapMediaIndex(mediaContextMenu.mediaIndex);
+    setShowAddMediaPopover(true);
+    setMediaContextMenu(prev => ({ ...prev, visible: false }));
+  };
+  
+  // Handle swap media selection (by index to handle duplicates)
+  const handleSwapMediaSelect = (mediaIds: string[]) => {
+    if (swapMediaIndex !== null && mediaIds.length > 0) {
+      const newMediaId = mediaIds[0];
+      const newMedia = allDocuments.find(doc => doc.id === newMediaId);
+      const oldMedia = addedMedia[swapMediaIndex];
+      if (newMedia) {
+        // Replace only the specific instance by index
+        setAddedMedia(prev => prev.map((m, idx) => 
+          idx === swapMediaIndex ? newMedia : m
+        ));
+        // Update connections for the old media
+        if (oldMedia) {
+          setAIConnections(prev => prev.map(c => 
+            c.imageId === oldMedia.id 
+              ? { ...c, imageId: newMediaId, elementId: `media-${newMediaId}` }
+              : c
+          ));
+        }
+      }
+    }
+    setSwapMediaIndex(null);
   };
   
   // Save generated image to Media
@@ -218,6 +565,49 @@ export default function DocumentViewPage() {
     }
   };
 
+  // Inline title editing
+  const startEditingTitle = () => {
+    setEditingTitleValue(document?.title || "");
+    setIsEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
+  const saveEditingTitle = async () => {
+    if (!editingTitleValue.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const newTitle = editingTitleValue.trim();
+    setIsEditingTitle(false);
+    try {
+      await fetch(`/api/documents/${document?.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      setDocument(prev => prev ? { ...prev, title: newTitle } : null);
+    } catch (error) {
+      console.error("Failed to save title:", error);
+    }
+  };
+
+  const cancelEditingTitle = () => {
+    setIsEditingTitle(false);
+    setEditingTitleValue("");
+  };
+
+  // Delete document
+  const handleDelete = async () => {
+    if (!document) return;
+    try {
+      await fetch(`/api/documents/${document.id}`, { method: "DELETE" });
+      router.push(`/workspace/${workspaceId}`);
+    } catch (error) {
+      console.error("Failed to delete document:", error);
+      throw error;
+    }
+  };
+
   // Zoom handlers
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 10, 200));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 10, 25));
@@ -231,35 +621,155 @@ export default function DocumentViewPage() {
   };
 
   // Connection handlers
-  const handleConnect = (imageId: string) => {
-    setConnectedImageIds(prev => {
-      const newSet = new Set(prev);
-      newSet.add(imageId);
-      return newSet;
+  const handleConnect = (
+    imageId: string,
+    elementId?: string,
+    sourceSide?: "top" | "right" | "bottom" | "left",
+    targetSide: "top" | "right" | "bottom" | "left" = "left"
+  ) => {
+    setAIConnections(prev => {
+      const exists = prev.some(c => c.imageId === imageId);
+      if (exists) return prev;
+      return [...prev, { 
+        imageId, 
+        elementId: elementId || (imageId === document?.id ? "main-image" : `media-${imageId}`),
+        sourceSide: sourceSide || "right",
+        targetSide,
+      }];
     });
     // Auto-open AI panel when connecting
     setShowAIPanel(true);
   };
 
   const handleDisconnect = (imageId: string) => {
-    setConnectedImageIds(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(imageId);
-      return newSet;
-    });
+    setAIConnections(prev => prev.filter(c => c.imageId !== imageId));
   };
 
-  // Get connected images for AI panel
+  const addElementConnection = useCallback((sourceId: string, targetId: string, sourceSide: "top" | "right" | "bottom" | "left", targetSide: "top" | "right" | "bottom" | "left") => {
+    setElementConnections(prev => {
+      const exists = prev.some(c => 
+        (c.sourceId === sourceId && c.targetId === targetId) ||
+        (c.sourceId === targetId && c.targetId === sourceId)
+      );
+      if (exists) return prev;
+      return [...prev, { sourceId, targetId, sourceSide, targetSide }];
+    });
+  }, []);
+
+  const handleConnectionPointClick = useCallback((elementId: string, imageId: string, _isAIConnected: boolean, side: "top" | "right" | "bottom" | "left") => {
+    if (pendingConnection) {
+      // Finish connection to another element
+      if (pendingConnection.sourceId !== elementId) {
+        addElementConnection(pendingConnection.sourceId, elementId, pendingConnection.sourceSide, side);
+      }
+      setPendingConnection(null);
+    } else {
+      // Start connection from this element
+      setPendingConnection({ sourceId: elementId, sourceSide: side });
+    }
+  }, [pendingConnection, handleDisconnect, addElementConnection]);
+
+  // Get connected images for AI panel - traverse element connections to find all images in cluster
   const getConnectedImages = () => {
-    const allImages = document ? [document, ...addedMedia] : addedMedia;
-    return allImages
-      .filter(img => connectedImageIds.has(img.id))
-      .map(img => ({
-        id: img.id,
-        title: img.title,
-        previewUrl: img.previewUrl,
-      }));
+    const result: { id: string; title: string; previewUrl?: string; elementId: string }[] = [];
+    const seenElementIds = new Set<string>();
+    
+    // For each AI connection, traverse the element graph to find all connected elements
+    for (const conn of aiConnections) {
+      // BFS to find all elements connected to this AI-connected element
+      const queue = [conn.elementId];
+      while (queue.length > 0) {
+        const currentElementId = queue.shift()!;
+        if (seenElementIds.has(currentElementId)) continue;
+        seenElementIds.add(currentElementId);
+        
+        // Find the actual image data for this element
+        let imgData: Document | undefined;
+        if (currentElementId === "main-image") {
+          imgData = document || undefined;
+        } else if (currentElementId.startsWith("media-")) {
+          const indexStr = currentElementId.replace("media-", "");
+          const index = parseInt(indexStr, 10);
+          if (!isNaN(index) && index >= 0 && index < addedMedia.length) {
+            imgData = addedMedia[index];
+          }
+        }
+        
+        if (imgData) {
+          result.push({
+            id: imgData.id,
+            title: imgData.title,
+            previewUrl: imgData.previewUrl,
+            elementId: currentElementId,
+          });
+        }
+        
+        // Add connected elements to queue
+        for (const elemConn of elementConnections) {
+          if (elemConn.sourceId === currentElementId && !seenElementIds.has(elemConn.targetId)) {
+            queue.push(elemConn.targetId);
+          }
+          if (elemConn.targetId === currentElementId && !seenElementIds.has(elemConn.sourceId)) {
+            queue.push(elemConn.sourceId);
+          }
+        }
+      }
+    }
+    
+    return result;
   };
+
+  const elementHasAnyConnection = useCallback((elementId: string, imageId: string) => {
+    if (connectedImageIds.has(imageId)) return true;
+    return elementConnections.some(c => c.sourceId === elementId || c.targetId === elementId);
+  }, [connectedImageIds, elementConnections]);
+  
+  const getImageIdFromElementId = useCallback((elementId: string) => {
+    if (elementId === "main-image") return document?.id || null;
+    // Handle indexed media elements: media-0, media-1, etc.
+    if (elementId.startsWith("media-")) {
+      const indexStr = elementId.replace("media-", "");
+      const index = parseInt(indexStr, 10);
+      if (!isNaN(index) && index >= 0 && index < addedMedia.length) {
+        return addedMedia[index].id;
+      }
+      // Fallback for legacy format (media-uuid)
+      return indexStr;
+    }
+    if (elementId.startsWith("output-")) return elementId.replace("output-", "");
+    return null;
+  }, [document?.id, addedMedia]);
+  
+  const getElementIdForImage = useCallback((imageId: string, index?: number) => {
+    if (imageId === document?.id) return "main-image";
+    // Use index-based ID for addedMedia to support duplicates
+    if (index !== undefined) return `media-${index}`;
+    // Fallback: find first matching index
+    const mediaIndex = addedMedia.findIndex(m => m.id === imageId);
+    return mediaIndex >= 0 ? `media-${mediaIndex}` : `media-${imageId}`;
+  }, [document?.id, addedMedia]);
+  
+  const computeRelativeSide = useCallback((source: ElementBounds, target: ElementBounds): "top" | "right" | "bottom" | "left" => {
+    const sourceCenter = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+    const targetCenter = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+    const dx = sourceCenter.x - targetCenter.x;
+    const dy = sourceCenter.y - targetCenter.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      return dx > 0 ? "right" : "left";
+    }
+    return dy > 0 ? "bottom" : "top";
+  }, []);
+  
+  // This function is intentionally empty - we don't want to create separate AI connections
+  // for each element in a cluster. The cluster is already connected via element-to-element
+  // connections, and getConnectedImages will traverse those to find all images.
+  const addAIConnectionsForCluster = useCallback((
+    _startElementId: string,
+    _explicitTargetSide: "top" | "right" | "bottom" | "left" | null
+  ) => {
+    // No-op: We only need the single AI connection that was explicitly created.
+    // The getConnectedImages function will traverse element connections to find all images.
+  }, []);
 
   // Handle AI generated image - show it to the right of the chat panel
   const handleImageGenerated = (imageUrl: string, title: string) => {
@@ -291,35 +801,84 @@ export default function DocumentViewPage() {
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Header */}
-      <div className="h-12 border-b flex items-center justify-between px-4">
-        <div className="flex items-center gap-2 text-sm">
-          <button onClick={() => router.back()} className="p-1 hover:bg-muted rounded">
-            <ArrowLeft className="h-4 w-4" />
+      <div className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-white">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 text-gray-500" />
           </button>
-          <Link href={`/workspace/${workspaceId}`} className="flex items-center gap-1 hover:text-foreground text-muted-foreground">
-            <Home className="h-4 w-4" />
-            {workspaceName}
-          </Link>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          <span className="flex items-center gap-1.5">
-            <ImageIcon className="h-4 w-4" />
-            {document.title}
-          </span>
+          
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-sm">
+            <Link
+              href={`/workspace/${workspaceId}`}
+              className="flex items-center gap-1 text-gray-500 hover:text-gray-700"
+            >
+              <Home className="h-3.5 w-3.5" />
+              <span>{workspaceName}</span>
+            </Link>
+            <span className="text-gray-300">/</span>
+            <div className="flex items-center gap-1 text-gray-700">
+              <ImageIcon className="h-3.5 w-3.5" />
+              {isEditingTitle ? (
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={editingTitleValue}
+                  onChange={(e) => setEditingTitleValue(e.target.value)}
+                  onBlur={saveEditingTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEditingTitle();
+                    if (e.key === "Escape") cancelEditingTitle();
+                  }}
+                  className="font-medium bg-white border border-[var(--accent-primary)] rounded px-1 py-0.5 outline-none min-w-[100px]"
+                />
+              ) : (
+                <span 
+                  className="font-medium cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+                  onClick={startEditingTitle}
+                  title="Click to rename"
+                >
+                  {document.title}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-1 text-muted-foreground text-xs">
-          <span>Edited {new Date(document.created_at).toLocaleDateString()}</span>
-          <button onClick={toggleStar} className="p-1.5 hover:bg-muted rounded ml-2">
-            <Star className={`h-4 w-4 ${document.is_starred ? "text-amber-500 fill-amber-500" : ""}`} />
+
+        {/* Right side actions */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-400">
+            Edited {new Date(document.created_at).toLocaleDateString()}
+          </span>
+          <button
+            type="button"
+            onClick={toggleStar}
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <Star className={`h-4 w-4 ${document.is_starred ? "text-amber-500 fill-amber-500" : "text-gray-400"}`} />
           </button>
-          <button className="p-1.5 hover:bg-muted rounded">
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
+          
+          <ItemHeaderActions
+            itemId={documentId}
+            itemType="document"
+            itemTitle={document.title}
+            workspaceId={workspaceId}
+            isStarred={document.is_starred || false}
+            createdAt={document.created_at}
+            onToggleStar={toggleStar}
+            onStartRename={startEditingTitle}
+            onDelete={handleDelete}
+          />
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Document List */}
-        <div className="w-48 border-r overflow-y-auto py-2">
+        <div className="w-48 overflow-y-auto py-2">
           {allDocuments.map((doc) => (
             <Link
               key={doc.id}
@@ -341,11 +900,11 @@ export default function DocumentViewPage() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col relative overflow-hidden">
+        <div className="flex-1 flex flex-col relative">
           {/* Document Preview - Scrollable area */}
           <div 
-            className="flex-1 overflow-auto p-8 bg-muted/30"
-            style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
+            className="flex-1 overflow-auto p-8 relative document-canvas-surface"
+            style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}
           >
             {/* Floating Top Toolbar */}
             <DocumentFloatingToolbar
@@ -356,23 +915,32 @@ export default function DocumentViewPage() {
 
             <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
               <DialogContent
-                className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden bg-black border-none"
-                showCloseButton
+                className="max-w-[90vw] max-h-[90vh] w-auto h-auto p-4 overflow-hidden bg-black/95 border-none"
+                showCloseButton={false}
               >
                 <DialogTitle className="sr-only">Media preview</DialogTitle>
-                <div className="w-full h-full flex items-center justify-center">
+                {/* Custom close button for dark background */}
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-50"
+                >
+                  <X className="h-5 w-5 text-white" />
+                  <span className="sr-only">Schließen</span>
+                </button>
+                <div className="flex items-center justify-center">
                   {document.mime_type?.startsWith("image/") && document.previewUrl ? (
                     <img
                       src={document.previewUrl}
                       alt={document.title}
-                      className="max-w-full max-h-full object-contain"
+                      className="max-w-[85vw] max-h-[85vh] object-contain rounded-lg"
                     />
                   ) : document.mime_type?.startsWith("video/") && document.previewUrl ? (
                     <video
                       src={document.previewUrl}
                       controls
                       playsInline
-                      className="w-full h-full object-contain"
+                      className="max-w-[85vw] max-h-[85vh] object-contain rounded-lg"
                     />
                   ) : null}
                 </div>
@@ -380,64 +948,161 @@ export default function DocumentViewPage() {
             </Dialog>
 
             {/* n8n-style Canvas: Freely draggable elements with curved connection lines */}
-            <div className="relative w-full h-full min-h-[900px] overflow-hidden">
+            <div className="relative min-w-[3000px] min-h-[2000px]">
               {/* SVG Layer for Curved Connection Lines */}
               <svg className="absolute inset-0 w-full h-full pointer-events-none z-30" style={{ overflow: 'visible' }}>
                 <defs>
                   {/* Green arrow for input connections */}
                   <marker
                     id="arrow-green-n8n"
-                    markerWidth="12"
-                    markerHeight="8"
-                    refX="10"
-                    refY="4"
+                    markerWidth="8"
+                    markerHeight="6"
+                    refX="7"
+                    refY="3"
                     orient="auto"
                   >
-                    <polygon points="0 0, 12 4, 0 8" fill="#10b981" />
+                    <polygon points="0 0, 8 3, 0 6" fill="#10b981" />
                   </marker>
                   {/* Purple arrow for output connections */}
                   <marker
                     id="arrow-purple-n8n"
-                    markerWidth="12"
-                    markerHeight="8"
-                    refX="10"
-                    refY="4"
+                    markerWidth="8"
+                    markerHeight="6"
+                    refX="7"
+                    refY="3"
                     orient="auto"
                   >
-                    <polygon points="0 0, 12 4, 0 8" fill="#8b5cf6" />
+                    <polygon points="0 0, 8 3, 0 6" fill="#8b5cf6" />
                   </marker>
                 </defs>
                 {/* Draw curved bezier lines from each connected image to AI panel */}
                 {/* Input connections: Images → AI Panel */}
-                {showAIPanel && elementBounds["ai-panel"] && Array.from(connectedImageIds).map((imageId) => {
-                  const nodeId = imageId === document?.id ? "main-image" : `media-${imageId}`;
-                  const imageBounds = elementBounds[nodeId];
+                {showAIPanel && elementBounds["ai-panel"] && aiConnections.map((conn) => {
+                  const imageBounds = elementBounds[conn.elementId];
                   const panelBounds = elementBounds["ai-panel"];
                   
                   if (!imageBounds || !panelBounds) return null;
+                  const targetSide = conn.targetSide || "left";
                   
-                  // Start point: right edge of image, vertically centered
-                  const startX = imageBounds.x + imageBounds.width + 10;
-                  const startY = imageBounds.y + imageBounds.height / 2;
+                  // Calculate start point based on source side
+                  const { x: startX, y: startY } = getConnectorPoint(imageBounds, conn.sourceSide);
+                  let controlX1 = startX, controlY1 = startY;
+                  const controlDistance = 60;
                   
-                  // End point: left edge of panel, vertically centered
-                  const endX = panelBounds.x - 5;
-                  const endY = panelBounds.y + panelBounds.height / 2;
+                  switch (conn.sourceSide) {
+                    case "top":
+                      controlY1 = startY - controlDistance;
+                      break;
+                    case "right":
+                      controlX1 = startX + controlDistance;
+                      controlY1 = startY;
+                      break;
+                    case "bottom":
+                      controlY1 = startY + controlDistance;
+                      break;
+                    case "left":
+                      controlX1 = startX - controlDistance;
+                      controlY1 = startY;
+                      break;
+                  }
                   
-                  // Control points for smooth bezier curve
-                  const controlOffset = Math.min(100, Math.abs(endX - startX) / 3);
+                  // End point based on target side of AI panel
+                  const { x: endX, y: endY } = getConnectorPoint(panelBounds, targetSide);
+                  let controlX2 = endX, controlY2 = endY;
+                  switch (targetSide) {
+                    case "top":
+                      controlY2 = endY - controlDistance;
+                      break;
+                    case "right":
+                      controlX2 = endX + controlDistance;
+                      controlY2 = endY;
+                      break;
+                    case "bottom":
+                      controlY2 = endY + controlDistance;
+                      break;
+                    case "left":
+                    default:
+                      controlX2 = endX - controlDistance;
+                      controlY2 = endY;
+                      break;
+                  }
                   
-                  // Create bezier path
-                  const path = `M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${endX - controlOffset} ${endY}, ${endX} ${endY}`;
+                  // Create bezier path with proper control points
+                  const path = `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
                   
                   return (
                     <path
-                      key={`input-${imageId}`}
+                      key={`input-${conn.imageId}`}
                       d={path}
                       fill="none"
                       stroke="#10b981"
-                      strokeWidth="2.5"
-                      strokeDasharray="10 6"
+                      strokeWidth="1.5"
+                      strokeDasharray="6 4"
+                      markerEnd="url(#arrow-green-n8n)"
+                    />
+                  );
+                })}
+                
+                {/* Element-to-element connections */}
+                {elementConnections.map((conn, index) => {
+                  const sourceBounds = elementBounds[conn.sourceId];
+                  const targetBounds = elementBounds[conn.targetId];
+                  
+                  if (!sourceBounds || !targetBounds) return null;
+                  
+                  // Calculate start point based on source side
+                  const { x: startX, y: startY } = getConnectorPoint(sourceBounds, conn.sourceSide);
+                  let controlX1 = startX, controlY1 = startY;
+                  const controlDistance = 60;
+                  
+                  switch (conn.sourceSide) {
+                    case "top":
+                      controlY1 = startY - controlDistance;
+                      break;
+                    case "right":
+                      controlX1 = startX + controlDistance;
+                      controlY1 = startY;
+                      break;
+                    case "bottom":
+                      controlY1 = startY + controlDistance;
+                      break;
+                    case "left":
+                      controlX1 = startX - controlDistance;
+                      controlY1 = startY;
+                      break;
+                  }
+                  
+                  // Calculate end point based on target side
+                  const { x: endX, y: endY } = getConnectorPoint(targetBounds, conn.targetSide);
+                  let controlX2 = endX, controlY2 = endY;
+                  
+                  switch (conn.targetSide) {
+                    case "top":
+                      controlY2 = endY - controlDistance;
+                      break;
+                    case "right":
+                      controlX2 = endX + controlDistance;
+                      controlY2 = endY;
+                      break;
+                    case "bottom":
+                      controlY2 = endY + controlDistance;
+                      break;
+                    case "left":
+                      controlX2 = endX - controlDistance;
+                      controlY2 = endY;
+                      break;
+                  }
+                  
+                  const path = `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
+                  
+                  return (
+                    <path
+                      key={`elem-conn-${index}`}
+                      d={path}
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="1.5"
+                      strokeDasharray="6 4"
                       markerEnd="url(#arrow-green-n8n)"
                     />
                   );
@@ -470,12 +1135,75 @@ export default function DocumentViewPage() {
                       d={path}
                       fill="none"
                       stroke="#8b5cf6"
-                      strokeWidth="2.5"
-                      strokeDasharray="10 6"
+                      strokeWidth="1.5"
+                      strokeDasharray="6 4"
                       markerEnd="url(#arrow-purple-n8n)"
                     />
                   );
                 })}
+                
+                {/* Temporary drag connection line */}
+                {dragConnection && elementBounds[dragConnection.sourceId] && (() => {
+                  const sourceBounds = elementBounds[dragConnection.sourceId];
+                  const { x: startX, y: startY } = getConnectorPoint(sourceBounds, dragConnection.sourceSide);
+                  let controlX1 = startX, controlY1 = startY;
+                  
+                  // Calculate start point and control point direction based on side
+                  const controlDistance = 60;
+                  switch (dragConnection.sourceSide) {
+                    case "top":
+                      controlY1 = startY - controlDistance;
+                      break;
+                    case "right":
+                      controlX1 = startX + controlDistance;
+                      controlY1 = startY;
+                      break;
+                    case "bottom":
+                      controlY1 = startY + controlDistance;
+                      break;
+                    case "left":
+                      controlX1 = startX - controlDistance;
+                      controlY1 = startY;
+                      break;
+                  }
+                  
+                  // Get container offset for mouse position
+                  const container = window.document.querySelector('[data-draggable-id="main-image"]')?.parentElement;
+                  const containerRect = container?.getBoundingClientRect();
+                  const offsetX = containerRect?.left || 0;
+                  const offsetY = containerRect?.top || 0;
+                  
+                  const endX = dragConnection.mouseX - offsetX;
+                  const endY = dragConnection.mouseY - offsetY;
+                  
+                  // Control point 2 - towards the end point
+                  const controlX2 = endX;
+                  const controlY2 = endY;
+                  
+                  // Create bezier path with proper control points
+                  const path = `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
+                  
+                  return (
+                    <g>
+                      <path
+                        d={path}
+                        fill="none"
+                        stroke="#10b981"
+                        strokeWidth="2"
+                        strokeDasharray="6 4"
+                        style={{ pointerEvents: "none" }}
+                      />
+                      {/* Arrow head at end */}
+                      <circle
+                        cx={endX}
+                        cy={endY}
+                        r="4"
+                        fill="#10b981"
+                        style={{ pointerEvents: "none" }}
+                      />
+                    </g>
+                  );
+                })()}
               </svg>
 
               {/* Main Document - Draggable */}
@@ -484,6 +1212,9 @@ export default function DocumentViewPage() {
                 initialX={100}
                 initialY={80}
                 onBoundsChange={handleBoundsChange}
+                showDragIndicator={false}
+                isSelected={selectedElementId === "main-image"}
+                onSelect={handleElementSelect}
               >
                 <div className="relative">
                   {document.mime_type?.startsWith("image/") && document.previewUrl ? (
@@ -492,24 +1223,30 @@ export default function DocumentViewPage() {
                       src={document.previewUrl}
                       alt={document.title}
                       isConnected={connectedImageIds.has(document.id)}
+                      isSelected={true} // always show connection points
                       onConnect={handleConnect}
                       onDisconnect={handleDisconnect}
+                      onConnectionPointClick={(side) =>
+                        handleConnectionPointClick(
+                          "main-image",
+                          document.id,
+                          connectedImageIds.has(document.id),
+                          side
+                        )
+                      }
+                      onConnectionDragStart={(side, e) => handleConnectionDragStart("main-image", side, e)}
                     />
                   ) : document.mime_type?.startsWith("video/") && document.previewUrl ? (
-                    <video
+                    <ResizableVideo
                       src={document.previewUrl}
-                      controls
-                      playsInline
-                      preload="metadata"
+                      title={document.title}
                       onDoubleClick={() => setIsPreviewOpen(true)}
-                      className="w-full max-w-4xl rounded-lg border shadow-lg bg-black pointer-events-auto"
                     />
                   ) : document.mime_type === "application/pdf" && document.previewUrl ? (
-                    <iframe
-                      src={`${document.previewUrl}#toolbar=1&navpanes=1&scrollbar=1`}
-                      className="w-full max-w-4xl rounded-lg border shadow-lg bg-white pointer-events-auto"
+                    <ResizablePdfViewer 
+                      url={document.previewUrl} 
                       title={document.title}
-                      style={{ minHeight: "600px" }}
+                      onDoubleClick={() => setIsPreviewOpen(true)}
                     />
                   ) : (
                     <div className="flex flex-col items-center gap-4 text-muted-foreground py-16 bg-white rounded-xl shadow-lg px-8">
@@ -517,54 +1254,63 @@ export default function DocumentViewPage() {
                       <p>Preview not available</p>
                       <button
                         onClick={handleDownload}
-                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                        className="px-4 py-2 bg-[var(--accent-primary)] text-white rounded-lg hover:bg-[var(--accent-primary-hover)]"
                       >
                         Download File
                       </button>
                     </div>
                   )}
-                  {/* Main image title */}
-                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm border text-xs text-muted-foreground whitespace-nowrap max-w-[200px] truncate">
-                    {document.title}
-                  </div>
                 </div>
               </DraggableElement>
 
-              {/* Added Media - Each as separate draggable element */}
-              {addedMedia.map((media, index) => (
+              {/* Added Media - Each as separate draggable element with unique index-based IDs */}
+              {addedMedia.map((media, index) => {
+                const elementId = `media-${index}`;
+                // Check if THIS specific element is connected to AI
+                const isElementConnectedToAI = aiConnections.some(c => c.elementId === elementId);
+                return (
                 <DraggableElement
-                  key={media.id}
-                  id={`media-${media.id}`}
+                  key={`media-instance-${index}`}
+                  id={elementId}
                   initialX={100}
                   initialY={450 + (index * 350)}
                   onBoundsChange={handleBoundsChange}
+                  showDragIndicator={false}
+                  isSelected={selectedElementId === elementId}
+                  onSelect={handleElementSelect}
                 >
-                  <div className="relative">
+                  <div 
+                    className="relative"
+                    onContextMenu={(e) => handleMediaContextMenu(e, index)}
+                  >
                     {media.mime_type?.startsWith("image/") && media.previewUrl ? (
                       <ImageWithConnector
                         id={media.id}
                         src={media.previewUrl}
                         alt={media.title}
-                        isConnected={connectedImageIds.has(media.id)}
+                        isConnected={isElementConnectedToAI}
+                        isSelected={true} // always show connection points
                         onConnect={handleConnect}
                         onDisconnect={handleDisconnect}
+                        onConnectionPointClick={(side) =>
+                          handleConnectionPointClick(
+                            elementId,
+                            media.id,
+                            isElementConnectedToAI,
+                            side
+                          )
+                        }
+                        onConnectionDragStart={(side, e) => handleConnectionDragStart(elementId, side, e)}
                       />
                     ) : media.mime_type?.startsWith("video/") && media.previewUrl ? (
-                      <video
+                      <ResizableVideo
                         src={media.previewUrl}
-                        controls
-                        playsInline
-                        preload="metadata"
-                        className="w-full max-w-4xl rounded-lg border shadow-lg bg-black pointer-events-auto"
+                        title={media.title}
                       />
                     ) : null}
-                    {/* Media label */}
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm border text-xs text-muted-foreground whitespace-nowrap">
-                      {media.title}
-                    </div>
                   </div>
                 </DraggableElement>
-              ))}
+              );})}
 
               {/* Draggable AI Panel Node */}
               {showAIPanel && (
@@ -573,12 +1319,13 @@ export default function DocumentViewPage() {
                   initialX={700}
                   initialY={200}
                   onBoundsChange={handleBoundsChange}
+                  showDragIndicator={false}
                 >
                   <AIImagePanel
                     isOpen={showAIPanel}
                     onClose={() => {
                       setShowAIPanel(false);
-                      setConnectedImageIds(new Set());
+                      setAIConnections([]);
                     }}
                     workspaceId={workspaceId || ""}
                     connectedImages={getConnectedImages()}
@@ -635,39 +1382,78 @@ export default function DocumentViewPage() {
         onFitToScreen={handleFitToScreen}
         onAddMedia={() => setShowAddMediaPopover(true)}
         onCreateImage={() => setShowAIPanel(true)}
+        onOpenPreview={() => setIsPreviewOpen(true)}
       />
 
       {/* Add Media Popover */}
       <AddMediaPopover
         workspaceId={workspaceId || ""}
         isOpen={showAddMediaPopover}
-        onClose={() => setShowAddMediaPopover(false)}
-        onAddMedia={handleAddMedia}
+        onClose={() => {
+          setShowAddMediaPopover(false);
+          setSwapMediaIndex(null);
+        }}
+        onAddMedia={swapMediaIndex !== null ? handleSwapMediaSelect : handleAddMedia}
         excludeIds={[document.id, ...addedMedia.map(m => m.id)]}
+        singleSelect={swapMediaIndex !== null}
+        title={swapMediaIndex !== null ? "Bild Tauschen" : undefined}
       />
+
+      {/* Context Menu for Added Media Images */}
+      {mediaContextMenu.visible && (
+        <div
+          className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px] z-[9999]"
+          style={{ left: mediaContextMenu.x, top: mediaContextMenu.y }}
+        >
+          <button
+            type="button"
+            onClick={handleSwapMedia}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <ImageIcon className="h-3.5 w-3.5 text-gray-500" />
+            <span>Bild Tauschen</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleDuplicateMedia}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <FileText className="h-3.5 w-3.5 text-gray-500" />
+            <span>Duplizieren</span>
+          </button>
+          <div className="border-t border-gray-200 my-0.5" />
+          <button
+            type="button"
+            onClick={handleDeleteMedia}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5 text-gray-500" />
+            <span>Löschen</span>
+          </button>
+        </div>
+      )}
 
       {/* Custom Context Menu for Generated Images - Outside all containers */}
       {contextMenu.visible && (
         <div
-          className="fixed bg-white rounded-xl shadow-xl border py-1.5 min-w-[180px] z-[9999]"
+          className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px] z-[9999]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             onClick={handleSaveGeneratedImage}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
           >
-            <Download className="h-4 w-4 text-emerald-600" />
+            <Download className="h-3.5 w-3.5 text-gray-500" />
             <span>Speichern</span>
           </button>
-          <div className="border-t my-1" />
+          <div className="border-t border-gray-200 my-0.5" />
           <button
             type="button"
             onClick={handleDeleteGeneratedImage}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5 text-gray-500" />
             <span>Löschen</span>
           </button>
         </div>
@@ -677,7 +1463,7 @@ export default function DocumentViewPage() {
       <AlertDialog open={saveAlert.open} onOpenChange={(open) => setSaveAlert(prev => ({ ...prev, open }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className={saveAlert.success ? "text-emerald-600" : "text-red-600"}>
+            <AlertDialogTitle className={saveAlert.success ? "text-[var(--accent-primary-light)]" : "text-red-600"}>
               {saveAlert.success ? "Erfolg!" : "Fehler"}
             </AlertDialogTitle>
             <AlertDialogDescription>

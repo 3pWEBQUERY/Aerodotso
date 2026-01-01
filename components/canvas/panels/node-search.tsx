@@ -35,7 +35,7 @@ const NODE_TYPE_COLORS: Record<string, string> = {
   document: "text-orange-500 bg-orange-50",
   note: "text-amber-500 bg-amber-50",
   "ai-chat": "text-violet-500 bg-violet-50",
-  "ai-generator": "text-emerald-500 bg-emerald-50",
+  "ai-generator": "text-[var(--accent-primary-light)] bg-[var(--accent-primary)]/10",
   url: "text-indigo-500 bg-indigo-50",
   group: "text-gray-500 bg-gray-50",
 };
@@ -237,14 +237,14 @@ export function NodeSearch({ isOpen, onClose }: NodeSearchProps) {
                     type="button"
                     onClick={() => goToNode(node.id)}
                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                      isSelected ? "bg-emerald-50" : "hover:bg-gray-50"
+                      isSelected ? "bg-[var(--accent-primary)]/10" : "hover:bg-gray-50"
                     }`}
                   >
                     <div className={`w-8 h-8 rounded-lg ${colorClass} flex items-center justify-center`}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${isSelected ? "text-emerald-700" : "text-gray-700"}`}>
+                      <p className={`text-sm font-medium truncate ${isSelected ? "text-[var(--accent-primary)]" : "text-gray-700"}`}>
                         {node.data.label || `Untitled ${node.data.type}`}
                       </p>
                       <p className="text-xs text-gray-400 truncate">
@@ -254,7 +254,7 @@ export function NodeSearch({ isOpen, onClose }: NodeSearchProps) {
                         )}
                       </p>
                     </div>
-                    <ArrowRight className={`h-4 w-4 ${isSelected ? "text-emerald-500" : "text-gray-300"}`} />
+                    <ArrowRight className={`h-4 w-4 ${isSelected ? "text-[var(--accent-primary-light)]" : "text-gray-300"}`} />
                   </button>
                 );
               })}

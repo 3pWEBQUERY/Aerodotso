@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { Plus, FileText, Grid3X3, Link2, Upload, Home, MessageSquare, Command } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Plus, FileText, Grid3X3, Link2, Upload, Home, MessageSquare, Command, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUpload } from "@/components/providers/upload-provider";
+import { detectPlatform } from "@/lib/social/platform-detector";
+
+interface LinkPreview {
+  url: string;
+  title: string;
+  description?: string;
+  image?: string;
+}
 
 interface CreateToolbarProps {
   workspaceId: string;
@@ -13,6 +22,7 @@ interface CreateToolbarProps {
 type ActivePanel = "none" | "note" | "canvas" | "link" | "upload";
 
 export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
+  const router = useRouter();
   const [activePanel, setActivePanel] = useState<ActivePanel>("none");
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
@@ -20,8 +30,57 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
   const [linkUrl, setLinkUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { addUpload } = useUpload();
+
+  // Fetch link preview when URL changes
+  useEffect(() => {
+    if (activePanel !== "link") return;
+    
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+    }
+
+    const trimmed = linkUrl.trim();
+    if (!trimmed || trimmed.length < 5) {
+      setLinkPreview(null);
+      return;
+    }
+
+    const urlPattern = /^(https?:\/\/)?[\w.-]+\.[a-z]{2,}(\/.*)?$/i;
+    if (!urlPattern.test(trimmed)) {
+      setLinkPreview(null);
+      return;
+    }
+
+    setIsLoadingPreview(true);
+    previewTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/links/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: trimmed }),
+        });
+        const data = await response.json();
+        if (data.title) {
+          setLinkPreview(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch preview:", error);
+      } finally {
+        setIsLoadingPreview(false);
+      }
+    }, 500);
+
+    return () => {
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
+    };
+  }, [linkUrl, activePanel]);
 
 
   const handleTogglePanel = (panel: ActivePanel) => {
@@ -31,11 +90,18 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
     setNoteContent("");
     setCanvasName("");
     setLinkUrl("");
+    setLinkPreview(null);
+  };
+
+  const getDomain = (url: string) => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url;
+    }
   };
 
   const handleCreateNote = async () => {
-    if (!noteTitle.trim()) return;
-    
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/notes", {
@@ -43,16 +109,19 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspaceId,
-          title: noteTitle,
+          title: noteTitle.trim() || "Untitled Note",
           content: noteContent,
         }),
       });
       
       if (res.ok) {
+        const { note } = await res.json();
         setActivePanel("none");
         setNoteTitle("");
         setNoteContent("");
         onCreated?.();
+        // Navigate to the new note
+        router.push(`/workspace/${workspaceId}/notes/${note.id}`);
       }
     } catch (error) {
       console.error("Failed to create note:", error);
@@ -90,6 +159,14 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
   const handleCreateLink = async () => {
     if (!linkUrl.trim()) return;
     
+    let url = linkUrl.trim();
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = "https://" + url;
+    }
+
+    const detected = detectPlatform(url);
+    const linkType = detected?.platform || undefined;
+    
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/links", {
@@ -97,13 +174,18 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspaceId,
-          url: linkUrl,
+          url: linkPreview?.url || url,
+          title: linkPreview?.title || getDomain(url),
+          description: linkPreview?.description || null,
+          thumbnail_url: linkPreview?.image || null,
+          link_type: linkType,
         }),
       });
       
       if (res.ok) {
         setActivePanel("none");
         setLinkUrl("");
+        setLinkPreview(null);
         onCreated?.();
       }
     } catch (error) {
@@ -169,7 +251,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
           className={cn(
             "flex items-center gap-2 px-4 py-2 text-sm border rounded-xl transition-colors",
             activePanel === "note"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+              ? "bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/50 text-[var(--accent-primary)]"
               : "hover:bg-muted"
           )}
         >
@@ -183,7 +265,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
           className={cn(
             "flex items-center gap-2 px-4 py-2 text-sm border rounded-xl transition-colors",
             activePanel === "canvas"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+              ? "bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/50 text-[var(--accent-primary)]"
               : "hover:bg-muted"
           )}
         >
@@ -197,7 +279,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
           className={cn(
             "flex items-center gap-2 px-4 py-2 text-sm border rounded-xl transition-colors",
             activePanel === "link"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+              ? "bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/50 text-[var(--accent-primary)]"
               : "hover:bg-muted"
           )}
         >
@@ -211,7 +293,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
           className={cn(
             "flex items-center gap-2 px-4 py-2 text-sm border rounded-xl transition-colors",
             activePanel === "upload"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+              ? "bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/50 text-[var(--accent-primary)]"
               : "hover:bg-muted"
           )}
         >
@@ -256,7 +338,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
                 type="button"
                 onClick={handleCreateNote}
                 disabled={isSubmitting || !noteTitle.trim()}
-                className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 disabled:opacity-50"
+                className="p-2 bg-[var(--accent-primary)] text-white rounded-full hover:bg-[var(--accent-primary-hover)] disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -297,7 +379,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
                 type="button"
                 onClick={handleCreateCanvas}
                 disabled={isSubmitting || !canvasName.trim()}
-                className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 disabled:opacity-50"
+                className="p-2 bg-[var(--accent-primary)] text-white rounded-full hover:bg-[var(--accent-primary-hover)] disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -318,6 +400,37 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
               className="w-full text-sm placeholder:text-muted-foreground/50 outline-none mb-4"
               autoFocus
             />
+            
+            {/* Link Preview */}
+            {isLoadingPreview && (
+              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg mb-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Loading preview...</span>
+              </div>
+            )}
+            {linkPreview && !isLoadingPreview && (
+              <div className="flex gap-3 p-3 bg-muted/50 rounded-lg mb-4">
+                {linkPreview.image && (
+                  <img
+                    src={linkPreview.image}
+                    alt=""
+                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{linkPreview.title}</p>
+                  {linkPreview.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                      {linkPreview.description}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {getDomain(linkPreview.url || linkUrl)}
+                  </p>
+                </div>
+              </div>
+            )}
+            
             <div className="flex items-center justify-end gap-2">
               <span className="text-xs text-muted-foreground mr-auto">Save to</span>
               <div className="flex items-center gap-1 px-3 py-1.5 bg-muted rounded text-sm">
@@ -334,7 +447,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
                 type="button"
                 onClick={handleCreateLink}
                 disabled={isSubmitting || !linkUrl.trim()}
-                className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 disabled:opacity-50"
+                className="p-2 bg-[var(--accent-primary)] text-white rounded-full hover:bg-[var(--accent-primary-hover)] disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -352,7 +465,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               "border-2 border-dashed rounded-xl bg-white p-8 cursor-pointer transition-colors",
-              isDragging ? "border-emerald-500 bg-emerald-50" : "hover:border-muted-foreground/50"
+              isDragging ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10" : "hover:border-muted-foreground/50"
             )}
           >
             <input
@@ -366,7 +479,7 @@ export function CreateToolbar({ workspaceId, onCreated }: CreateToolbarProps) {
               <Upload className="h-8 w-8 text-muted-foreground" />
               <p className="font-medium">Drag + drop to upload</p>
               <p className="text-sm text-muted-foreground">
-                or <span className="text-emerald-600">Browse files</span>
+                or <span className="text-[var(--accent-primary-light)]">Browse files</span>
               </p>
               <p className="text-xs text-muted-foreground">
                 (Try dropping folders here too)

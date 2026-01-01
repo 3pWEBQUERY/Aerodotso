@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect, useState } from "react";
 import { Check, Star, Film } from "lucide-react";
 import Link from "next/link";
 
@@ -22,8 +23,27 @@ export function PortraitVideoCard({
   onCheckboxClick,
   href,
 }: PortraitVideoCardProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Auto-play on hover, pause on mouse leave
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    if (isHovered) {
+      videoRef.current.play().catch(() => {});
+    } else {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  }, [isHovered]);
+
   return (
-    <div className="cursor-pointer relative group w-40">
+    <div 
+      className="cursor-pointer relative group w-40"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <button
         type="button"
         onClick={(e) => {
@@ -33,8 +53,8 @@ export function PortraitVideoCard({
         }}
         className={`absolute top-3 left-3 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
           isSelected
-            ? "bg-emerald-600 border-emerald-600 text-white opacity-100"
-            : "bg-white/80 border-gray-300 hover:border-emerald-500 opacity-0 group-hover:opacity-100"
+            ? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white opacity-100"
+            : "bg-white/80 border-gray-300 hover:border-[var(--accent-primary)] opacity-0 group-hover:opacity-100"
         }`}
       >
         {isSelected && <Check className="h-4 w-4" />}
@@ -57,16 +77,16 @@ export function PortraitVideoCard({
       <Link href={href}>
         <div
           className={`w-40 h-56 rounded-2xl overflow-hidden bg-gray-100 relative ${
-            isSelected ? "ring-2 ring-emerald-500 ring-offset-2" : ""
+            isSelected ? "ring-2 ring-[var(--accent-primary)] ring-offset-2" : ""
           }`}
         >
           <video
+            ref={videoRef}
             src={src}
             muted
-            autoPlay
             loop
             playsInline
-            preload="auto"
+            preload="metadata"
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
 

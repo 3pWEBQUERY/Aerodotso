@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState, useCallback } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { ImageNodeData } from "@/lib/canvas/types";
 import { useCanvasStore } from "@/lib/canvas/store";
@@ -24,6 +24,7 @@ import {
 function ImageNode({ id, data, selected }: NodeProps<ImageNodeData>) {
   const [isHovered, setIsHovered] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const { deleteNode, duplicateNode, updateNode, addNode, addEdge, getNodeById } = useCanvasStore();
 
   // If image dimensions are missing (e.g. older nodes), load them once so we can
@@ -42,21 +43,57 @@ function ImageNode({ id, data, selected }: NodeProps<ImageNodeData>) {
     img.src = data.thumbnail || data.url;
   }, [data.url, data.thumbnail, data.width, data.height, id, updateNode]);
 
+  // Use custom size if set, otherwise calculate from image dimensions
   const nodeWidth = useMemo(() => {
+    if ((data as any).nodeWidth) return (data as any).nodeWidth;
     if (data.width > 0 && data.height > 0) {
-      // portrait -> narrower, landscape -> wider
       return data.height > data.width ? 240 : 320;
     }
     return 280;
-  }, [data.width, data.height]);
+  }, [data.width, data.height, (data as any).nodeWidth]);
 
   const nodeHeight = useMemo(() => {
+    if ((data as any).nodeHeight) return (data as any).nodeHeight;
     if (data.width > 0 && data.height > 0) {
       const h = Math.round((nodeWidth * data.height) / data.width);
       return Math.max(160, Math.min(420, h));
     }
     return 200;
-  }, [data.width, data.height, nodeWidth]);
+  }, [data.width, data.height, nodeWidth, (data as any).nodeHeight]);
+
+  // Custom resize handler
+  const handleResizeStart = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    
+    setIsResizing(true);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = nodeWidth;
+    const startHeight = nodeHeight;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
+      moveEvent.stopPropagation();
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      const newWidth = Math.max(120, startWidth + deltaX);
+      const newHeight = Math.max(100, startHeight + deltaY);
+      updateNode(id, { nodeWidth: newWidth, nodeHeight: newHeight } as any);
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      (upEvent.target as HTMLElement).releasePointerCapture(upEvent.pointerId);
+      setIsResizing(false);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  }, [id, nodeWidth, nodeHeight, updateNode]);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -145,31 +182,39 @@ function ImageNode({ id, data, selected }: NodeProps<ImageNodeData>) {
 
   return (
     <div
-      className={`
-        relative bg-white rounded-xl border shadow-sm overflow-hidden
-        transition-all duration-200 cursor-pointer
-        ${selected ? "ring-2 ring-emerald-500 border-emerald-500" : "border-gray-200 hover:border-gray-300"}
-      `}
+      className="relative"
       style={{
         width: nodeWidth,
         height: nodeHeight,
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
-        setIsHovered(false);
-        setShowMenu(false);
+        if (!isResizing) {
+          setIsHovered(false);
+          setShowMenu(false);
+        }
       }}
     >
-      {/* Connection Handles */}
+      {/* Main card container */}
+      <div
+        className={`
+          w-full h-full bg-white rounded-xl border shadow-sm overflow-hidden
+          transition-all duration-200 cursor-pointer
+          ${selected ? "ring-2 ring-[var(--accent-primary)] border-[var(--accent-primary)]" : "border-gray-200 hover:border-gray-300"}
+        `}
+      >
+      {/* Connection Handles - outside card when selected */}
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white"
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-left-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-3 !h-3 !bg-emerald-500 !border-2 !border-white"
+        className={`!w-3 !h-3 !bg-[var(--accent-primary)]/100 !border-2 !border-white transition-all duration-200 ${selected ? '!-right-4 !opacity-100' : '!opacity-0'}`}
+        style={{ top: '50%' }}
       />
 
       {/* Image Preview */}
@@ -187,92 +232,102 @@ function ImageNode({ id, data, selected }: NodeProps<ImageNodeData>) {
           </div>
         )}
 
-        {/* Hover Overlay */}
+        {/* Subtle hover overlay */}
         {isHovered && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={handleOpenInNewTab}
-              className="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
-              title="View full size"
-            >
-              <Eye className="h-4 w-4 text-gray-700" />
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  onClick={(e) => e.stopPropagation()}
-                  className="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
-                  title="Use as AI reference"
-                >
-                  <Sparkles className="h-4 w-4 text-violet-600" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                align="center"
-                className="w-44"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    createConnectedAINode("ai-chat");
-                  }}
-                >
-                  AI Chat
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    createConnectedAINode("ai-generator");
-                  }}
-                >
-                  AI Generator
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <button
-              type="button"
-              onClick={handleDuplicate}
-              className="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
-              title="Duplicate"
-            >
-              <Copy className="h-4 w-4 text-gray-700" />
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
-              title="Delete"
-            >
-              <Trash2 className="h-4 w-4 text-red-600" />
-            </button>
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
         )}
 
-        {/* AI Tags Badge */}
-        {data.aiTags && data.aiTags.length > 0 && (
-          <div className="absolute top-2 left-2">
-            <div className="flex items-center gap-1 px-2 py-1 bg-violet-500/90 text-white text-[10px] rounded-xl">
-              <Sparkles className="h-2.5 w-2.5" />
-              <span>AI Tagged</span>
-            </div>
-          </div>
-        )}
+      </div>
+      </div>
 
-        {/* Label Overlay (no white footer) */}
-        <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 min-w-0">
-          <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/30 backdrop-blur-md border border-white/30 shadow-sm min-w-0">
-            <div className="w-6 h-6 rounded-md bg-white/35 backdrop-blur-md flex items-center justify-center flex-shrink-0">
-              <ImageIcon className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="text-xs font-medium text-white truncate">
-              {data.label || "Image"}
-            </span>
-          </div>
-        </div>
+      {/* Resize handle - bottom right corner */}
+      <div
+        onPointerDown={handleResizeStart}
+        className={`absolute bottom-0 right-0 w-6 h-6 cursor-se-resize transition-opacity flex items-center justify-center nodrag nopan ${isHovered || isResizing ? 'opacity-100' : 'opacity-0'}`}
+        style={{ zIndex: 50, touchAction: "none" }}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" className="text-white drop-shadow-md">
+          <path d="M10 6L6 10M10 2L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </div>
+
+      {/* Animated action bar below card - appears on selection */}
+      <div 
+        className={`absolute left-1/2 -translate-x-1/2 flex items-center h-10 px-2 bg-white rounded-xl shadow-sm border border-gray-200 transition-all duration-300 ease-out ${
+          selected 
+            ? 'opacity-100 translate-y-0 scale-100' 
+            : 'opacity-0 -translate-y-3 scale-95 pointer-events-none'
+        }`}
+        style={{ top: '100%', marginTop: 10, zIndex: 100 }}
+      >
+        <button
+          type="button"
+          onClick={handleOpenInNewTab}
+          className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-xl transition-colors"
+          title="View full size"
+        >
+          <Eye className="h-4 w-4 text-gray-500" />
+        </button>
+        
+        {/* Divider */}
+        <div className="w-px h-5 bg-gray-200 mx-1" />
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-xl transition-colors"
+              title="Use as AI reference"
+            >
+              <Sparkles className="h-4 w-4 text-gray-500" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="bottom"
+            align="center"
+            className="w-44"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                createConnectedAINode("ai-chat");
+              }}
+            >
+              AI Chat
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                createConnectedAINode("ai-generator");
+              }}
+            >
+              AI Generator
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+        <button
+          type="button"
+          onClick={handleDuplicate}
+          className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-xl transition-colors"
+          title="Duplicate"
+        >
+          <Copy className="h-4 w-4 text-gray-500" />
+        </button>
+        
+        {/* Divider */}
+        <div className="w-px h-5 bg-gray-200 mx-1" />
+        
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-xl transition-colors"
+          title="Delete"
+        >
+          <Trash2 className="h-4 w-4 text-gray-500" />
+        </button>
       </div>
     </div>
   );

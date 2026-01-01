@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, Send, Sparkles, ImageIcon, Loader2, Paperclip, Globe, ChevronDown } from "lucide-react";
+import { ConnectionPoints } from "./connection-points";
 
 // Available AI Image Generation Models
 const AI_MODELS = [
@@ -156,11 +157,16 @@ export function AIImagePanelCard({
   if (!isOpen) return null;
 
   return (
-    <div className="w-[400px] h-[500px] bg-white rounded-2xl shadow-lg border flex flex-col overflow-hidden">
+    <div className="relative w-[400px] h-[500px] bg-white rounded-2xl shadow-lg border flex flex-col">
+      {/* Connection points - always visible for AI Panel */}
+      <ConnectionPoints
+        isSelected={true}
+        spacing={12}
+      />
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-600" />
+          <Sparkles className="h-4 w-4 text-[var(--accent-primary-light)]" />
           <span className="font-medium text-sm">Create with AI</span>
         </div>
         <button
@@ -176,7 +182,7 @@ export function AIImagePanelCard({
       {connectedImages.length > 0 && (
         <div className="px-4 py-3 border-b bg-gray-50/50">
           <div className="flex items-center gap-2 mb-2">
-            <ImageIcon className="h-3.5 w-3.5 text-emerald-600" />
+            <ImageIcon className="h-3.5 w-3.5 text-[var(--accent-primary-light)]" />
             <span className="text-xs font-medium text-gray-600">
               {connectedImages.length} Bild{connectedImages.length > 1 ? "er" : ""} verbunden
             </span>
@@ -190,7 +196,7 @@ export function AIImagePanelCard({
                 <img
                   src={img.previewUrl}
                   alt={img.title}
-                  className="h-16 w-16 object-cover rounded-lg border-2 border-emerald-200 shadow-sm"
+                  className="h-16 w-16 object-cover rounded-lg border-2 border-[var(--accent-primary)]/30 shadow-sm"
                 />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                   <span className="text-white text-[10px] px-1 text-center truncate max-w-[60px]">
@@ -230,7 +236,7 @@ export function AIImagePanelCard({
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
                     message.role === "user"
-                      ? "bg-emerald-600 text-white"
+                      ? "bg-[var(--accent-primary)] text-white"
                       : "bg-gray-100 text-gray-800"
                   }`}
                 >
@@ -310,13 +316,13 @@ export function AIImagePanelCard({
                           setShowModelDropdown(false);
                         }}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${
-                          selectedModel === model.id ? "bg-emerald-50 text-emerald-700" : "text-gray-700"
+                          selectedModel === model.id ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]" : "text-gray-700"
                         }`}
                       >
                         <img src={model.logo} alt="" className="h-4 w-4 object-contain" />
                         <span className="font-medium">{model.name}</span>
                         {selectedModel === model.id && (
-                          <span className="ml-auto text-emerald-600">✓</span>
+                          <span className="ml-auto text-[var(--accent-primary-light)]">✓</span>
                         )}
                       </button>
                     ))}
@@ -328,7 +334,7 @@ export function AIImagePanelCard({
                 type="button"
                 onClick={handleSend}
                 disabled={!inputValue.trim() || isGenerating}
-                className="w-8 h-8 bg-emerald-600 text-white rounded-full flex items-center justify-center hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 bg-[var(--accent-primary)] text-white rounded-full flex items-center justify-center hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Send className="h-4 w-4" />
               </button>

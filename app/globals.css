@@ -47,6 +47,15 @@
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+  --workspace-sidebar: #081215;
+  --workspace-sidebar-foreground: #D1D5DB;
+  --workspace-sidebar-muted: #152025;
+  --workspace-sidebar-muted-foreground: #D1D5DB;
+  --workspace-sidebar-border: #1a2830;
+  --accent-primary: hsl(191.6 91.4% 36.5%);
+  --accent-primary-hover: hsl(187.9 85.7% 53.3%);
+  --accent-primary-light: hsl(187.9 85.7% 53.3%);
+  --accent-primary-muted: hsl(191.6 91.4% 36.5% / 0.2);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -131,4 +140,140 @@
 .mask-linear-fade {
   mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+}
+
+.document-canvas-surface {
+  --canvas-surface-base: #f8f9fb;
+  --canvas-surface-dot-color: rgba(168, 176, 190, 0.35);
+  background-color: var(--canvas-surface-base);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 249, 251, 0) 220px),
+    radial-gradient(circle, var(--canvas-surface-dot-color) 1px, transparent 1px);
+  background-size: 100% auto, 22px 22px;
+  background-position: 0 0, 4px 6px;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove ALL React Flow selection borders completely */
+.react-flow__node,
+.react-flow__node.selected,
+.react-flow__node.selectable,
+.react-flow__node.selectable.selected,
+.react-flow__node:focus,
+.react-flow__node:focus-visible,
+.react-flow__node:active,
+.react-flow__node-group,
+.react-flow__node-group.selected,
+.react-flow__node-group:focus,
+.react-flow__node-group:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-width: 0 !important;
+}
+
+.react-flow__node *,
+.react-flow__node.selected *,
+.react-flow__node-group *,
+.react-flow__node-group.selected * {
+  outline: none !important;
+}
+
+/* Kill all resize control styling */
+.react-flow__resize-control,
+.react-flow__resize-control.line,
+.react-flow__resize-control.handle,
+.react-flow__resize-control.line.top,
+.react-flow__resize-control.line.bottom,
+.react-flow__resize-control.line.left,
+.react-flow__resize-control.line.right {
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Only show our custom resize handle */
+.react-flow__resize-control.handle.bottom.right {
+  display: flex !important;
+}
+
+/* Canvas cursor for pan mode */
+.react-flow.pan-mode {
+  cursor: grab !important;
+}
+.react-flow.pan-mode:active {
+  cursor: grabbing !important;
+}
+
+/* Hide the blue selection box when selecting multiple nodes */
+.react-flow__selection {
+  display: none !important;
+}
+.react-flow__nodesselection-rect {
+  display: none !important;
+}
+
+/* Folder z-index - ensure folders are below other nodes */
+.react-flow__node-folder {
+  z-index: 0 !important;
+}
+
+/* All other nodes should be above folders */
+.react-flow__node:not(.react-flow__node-folder) {
+  z-index: 1 !important;
+}
+
+/* PostIt nodes should always be on top of other content */
+.react-flow__node.react-flow__node-postit {
+  z-index: 1000 !important;
+}
+
+/* Selected and dragged nodes should be on top */
+.react-flow__node.selected,
+.react-flow__node.dragging {
+  z-index: 1000 !important;
+}
+
+/* Folder animation for nodes appearing/disappearing */
+@keyframes folder-item-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) translate(-150px, 50px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08) translate(5px, -5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+@keyframes folder-item-disappear {
+  0% {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.2) translate(-150px, 50px);
+  }
+}
+
+/* Apply staggered animation to nodes from folder */
+.folder-item-animate {
+  animation: folder-item-appear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.folder-item-closing {
+  animation: folder-item-disappear 0.35s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+}
+
+/* Smooth transitions for all React Flow nodes */
+.react-flow__node {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
 }

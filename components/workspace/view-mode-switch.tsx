@@ -11,15 +11,15 @@ interface ViewModeSwitchProps {
 
 export function ViewModeSwitch({ value, onChange }: ViewModeSwitchProps) {
   return (
-    <div className="inline-flex items-center h-9 rounded-xl border border-emerald-200 bg-emerald-50/70 p-1 shadow-sm">
+    <div className="inline-flex items-center h-9 rounded-xl border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10/70 p-1 shadow-sm">
       <button
         type="button"
         onClick={() => onChange("grid")}
         aria-pressed={value === "grid"}
-        className={`h-7 w-8 inline-flex items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+        className={`h-7 w-8 inline-flex items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-offset-2 ${
           value === "grid"
-            ? "bg-emerald-600 text-white shadow"
-            : "text-emerald-700 hover:bg-emerald-100"
+            ? "bg-[var(--accent-primary)] text-white shadow"
+            : "text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/20"
         }`}
       >
         <LayoutGrid className="h-4 w-4" />
@@ -28,10 +28,10 @@ export function ViewModeSwitch({ value, onChange }: ViewModeSwitchProps) {
         type="button"
         onClick={() => onChange("list")}
         aria-pressed={value === "list"}
-        className={`h-7 w-8 inline-flex items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+        className={`h-7 w-8 inline-flex items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-offset-2 ${
           value === "list"
-            ? "bg-emerald-600 text-white shadow"
-            : "text-emerald-700 hover:bg-emerald-100"
+            ? "bg-[var(--accent-primary)] text-white shadow"
+            : "text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/20"
         }`}
       >
         <Grid3X3 className="h-4 w-4" />
@@ -40,10 +40,10 @@ export function ViewModeSwitch({ value, onChange }: ViewModeSwitchProps) {
         type="button"
         onClick={() => onChange("compact")}
         aria-pressed={value === "compact"}
-        className={`h-7 w-8 inline-flex items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+        className={`h-7 w-8 inline-flex items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:ring-offset-2 ${
           value === "compact"
-            ? "bg-emerald-600 text-white shadow"
-            : "text-emerald-700 hover:bg-emerald-100"
+            ? "bg-[var(--accent-primary)] text-white shadow"
+            : "text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/20"
         }`}
       >
         <List className="h-4 w-4" />

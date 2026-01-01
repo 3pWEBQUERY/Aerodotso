@@ -122,7 +122,7 @@ export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
                   onClick={() => jumpToHistory(index)}
                   className={`
                     w-full flex items-center gap-3 px-4 py-2 text-left transition-colors
-                    ${isActive ? "bg-emerald-50" : "hover:bg-gray-50"}
+                    ${isActive ? "bg-[var(--accent-primary)]/10" : "hover:bg-gray-50"}
                     ${isFuture ? "opacity-50" : ""}
                   `}
                 >
@@ -131,7 +131,7 @@ export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
                     <div
                       className={`w-2.5 h-2.5 rounded-full border-2 ${
                         isActive
-                          ? "bg-emerald-500 border-emerald-500"
+                          ? "bg-[var(--accent-primary)]/100 border-[var(--accent-primary)]"
                           : isFuture
                           ? "bg-white border-gray-300"
                           : "bg-gray-300 border-gray-300"
@@ -150,7 +150,7 @@ export function HistoryPanel({ isOpen, onClose }: HistoryPanelProps) {
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-sm truncate ${
-                        isActive ? "text-emerald-700 font-medium" : "text-gray-700"
+                        isActive ? "text-[var(--accent-primary)] font-medium" : "text-gray-700"
                       }`}
                     >
                       {getActionLabel(entry, index)}

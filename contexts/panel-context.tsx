@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode } fr
 
 export interface Panel {
   id: string;
-  type: "note" | "document" | "link" | "canvas" | "folder";
+  type: "note" | "document" | "link" | "canvas" | "folder" | "scratch";
   itemId: string;
   title: string;
   width: number; // Width in pixels

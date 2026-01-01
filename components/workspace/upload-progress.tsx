@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronUp, ChevronDown, Loader2, Check, FileIcon, Pause, Play } from "lucide-react";
+import { X, ChevronUp, ChevronDown, Loader2, Check, FileIcon, Pause, Play, Sparkles, Upload } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,8 @@ export interface UploadItem {
   progress: number; // 0-100
   status: "waiting" | "uploading" | "processing" | "done" | "error";
   error?: string;
+  documentId?: string;
+  analysisStatus?: "pending" | "analyzing" | "done" | "error";
 }
 
 interface UploadProgressProps {
@@ -91,7 +93,7 @@ export function UploadProgress({
           )}
           {isAllDone && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <Check className="h-4 w-4 text-emerald-500" />
+              <Check className="h-4 w-4 text-[var(--accent-primary-light)]" />
             </div>
           )}
         </div>
@@ -164,14 +166,54 @@ export function UploadProgress({
                   {/* File Info */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate font-medium">{upload.fileName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(upload.fileSize)}
-                      {upload.status === "waiting" && " · Waiting"}
-                      {upload.status === "uploading" && ` · ${upload.progress}%`}
-                      {upload.status === "processing" && " · Processing..."}
-                      {upload.status === "done" && " · Done"}
-                      {upload.status === "error" && ` · ${upload.error || "Error"}`}
-                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{formatFileSize(upload.fileSize)}</span>
+                      
+                      {/* Upload Status */}
+                      {upload.status === "waiting" && (
+                        <span className="flex items-center gap-1">
+                          <Upload className="h-3 w-3" /> Waiting
+                        </span>
+                      )}
+                      {upload.status === "uploading" && (
+                        <span className="flex items-center gap-1 text-blue-600">
+                          <Upload className="h-3 w-3" /> {upload.progress}%
+                        </span>
+                      )}
+                      {upload.status === "error" && (
+                        <span className="text-red-500">{upload.error || "Error"}</span>
+                      )}
+                      
+                      {/* Analysis Status - shown after upload */}
+                      {(upload.status === "processing" || upload.status === "done") && (
+                        <>
+                          <span className="text-[var(--accent-primary-light)] flex items-center gap-1">
+                            <Check className="h-3 w-3" /> Uploaded
+                          </span>
+                          <span className="text-muted-foreground">·</span>
+                          {upload.analysisStatus === "pending" && (
+                            <span className="flex items-center gap-1 text-gray-500">
+                              <Sparkles className="h-3 w-3" /> Analysis pending
+                            </span>
+                          )}
+                          {upload.analysisStatus === "analyzing" && (
+                            <span className="flex items-center gap-1 text-purple-600">
+                              <Sparkles className="h-3 w-3 animate-pulse" /> Analyzing...
+                            </span>
+                          )}
+                          {upload.analysisStatus === "done" && (
+                            <span className="flex items-center gap-1 text-[var(--accent-primary-light)]">
+                              <Sparkles className="h-3 w-3" /> Analyzed
+                            </span>
+                          )}
+                          {upload.analysisStatus === "error" && (
+                            <span className="flex items-center gap-1 text-orange-500">
+                              <Sparkles className="h-3 w-3" /> Analysis failed
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   {/* Status/Actions */}
@@ -179,11 +221,14 @@ export function UploadProgress({
                     {upload.status === "uploading" && (
                       <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                     )}
-                    {upload.status === "processing" && (
+                    {upload.status === "processing" && upload.analysisStatus === "analyzing" && (
                       <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
                     )}
-                    {upload.status === "done" && (
-                      <Check className="h-4 w-4 text-emerald-500" />
+                    {upload.status === "done" && upload.analysisStatus === "done" && (
+                      <Check className="h-4 w-4 text-[var(--accent-primary-light)]" />
+                    )}
+                    {upload.status === "done" && upload.analysisStatus !== "done" && (
+                      <Sparkles className="h-4 w-4 text-purple-500 animate-pulse" />
                     )}
                     {upload.status !== "done" && upload.status !== "processing" && (
                       <button

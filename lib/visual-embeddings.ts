@@ -1,10 +1,12 @@
 /**
  * Visual embeddings for image and video search
  * Uses Google Gemini API for vision and embeddings
+ * IMPORTANT: Uses gemini-3-flash-preview exclusively for all operations
  */
 
 const VISUAL_EMBEDDING_DIMENSION = 768; // Gemini embedding dimension
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_VISION_MODEL = "gemini-3-flash-preview";
 
 // Rate limiting helper
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -56,9 +58,9 @@ export async function generateImageEmbedding(
     const base64Image = Buffer.from(imageBuffer).toString('base64');
     const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
 
-    // First, get a description of the image using Gemini Vision
+    // First, get a description of the image using Gemini Vision (gemini-3-flash-preview)
     const descriptionResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-06-05:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,7 +172,7 @@ export async function generateAITags(
   try {
     return await withRetry(async () => {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-06-05:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -213,7 +215,7 @@ export async function generateAISummary(
   try {
     return await withRetry(async () => {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-06-05:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

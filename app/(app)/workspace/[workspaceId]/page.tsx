@@ -5,12 +5,17 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Home, Trash2, Pencil, FolderClosed, Grid3X3, Link2, FileText, ImageIcon, File, Check, Move, Star, Share2, X, Lock, Globe, Upload, Eye, Copy, PanelRight } from "lucide-react";
 import { AnimatedFolder } from "@/components/workspace/animated-folder";
 import { SelectionActionBar } from "@/components/workspace/selection-action-bar";
+import { DraggableItem } from "@/components/workspace/draggable-item";
+import { DroppableFolder } from "@/components/workspace/droppable-folder";
 import { MediaCard } from "@/components/workspace/media-card";
 import { VideoCard } from "@/components/workspace/video-card";
 import { NoteCard } from "@/components/workspace/note-card";
+import { ScratchCard } from "@/components/workspace/scratch-card";
 import { LinkCard } from "@/components/workspace/link-card";
 import { CanvasCard } from "@/components/canvas/canvas-card";
 import { WorkspaceToolbar, SortBy, SortDirection, ViewMode } from "@/components/workspace/workspace-toolbar";
+import { WorkspaceStats } from "@/components/workspace/workspace-stats";
+import { ActivityChart } from "@/components/workspace/activity-chart";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -41,6 +46,15 @@ interface Canvas {
   created_at: string;
 }
 
+interface Scratch {
+  id: string;
+  title: string;
+  data?: any;
+  thumbnail?: string | null;
+  is_starred?: boolean;
+  created_at: string;
+}
+
 interface LinkItem {
   id: string;
   url: string;
@@ -68,7 +82,7 @@ function getLinkTypeBadge(linkType?: string): { label: string; color: string } {
     case "github": return { label: "GitHub", color: "bg-gray-800" };
     case "figma": return { label: "Figma", color: "bg-purple-500" };
     case "notion": return { label: "Notion", color: "bg-gray-900" };
-    case "article": return { label: "Article", color: "bg-emerald-600" };
+    case "article": return { label: "Article", color: "bg-[var(--accent-primary)]" };
     case "pdf": return { label: "PDF", color: "bg-red-500" };
     case "image": return { label: "Image", color: "bg-indigo-500" };
     case "audio": return { label: "Audio", color: "bg-violet-500" };
@@ -115,6 +129,7 @@ export default function WorkspaceDetailPage() {
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [scratches, setScratches] = useState<Scratch[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Selection state
@@ -133,6 +148,9 @@ export default function WorkspaceDetailPage() {
 
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Share popover state
   const [showSharePopover, setShowSharePopover] = useState(false);
@@ -157,20 +175,22 @@ export default function WorkspaceDetailPage() {
     if (!workspaceId) return;
     setLoading(true);
     try {
-      const [notesRes, canvasRes, linksRes, docsRes, foldersRes] = await Promise.all([
+      const [notesRes, canvasRes, linksRes, docsRes, foldersRes, scratchesRes] = await Promise.all([
         fetch(`/api/notes?workspaceId=${workspaceId}`),
         fetch(`/api/canvas?workspaceId=${workspaceId}`),
         fetch(`/api/links?workspaceId=${workspaceId}`),
         fetch(`/api/documents/list?workspaceId=${workspaceId}`),
         fetch(`/api/folders?workspaceId=${workspaceId}`),
+        fetch(`/api/scratches?workspaceId=${workspaceId}`),
       ]);
       
-      const [notesData, canvasData, linksData, docsData, foldersData] = await Promise.all([
+      const [notesData, canvasData, linksData, docsData, foldersData, scratchesData] = await Promise.all([
         notesRes.json(),
         canvasRes.json(),
         linksRes.json(),
         docsRes.json(),
         foldersRes.json(),
+        scratchesRes.json(),
       ]);
       
       if (notesData.notes) setNotes(notesData.notes);
@@ -178,6 +198,7 @@ export default function WorkspaceDetailPage() {
       if (linksData.links) setLinks(linksData.links);
       if (docsData.documents) setDocuments(docsData.documents);
       if (foldersData.folders) setFolders(foldersData.folders);
+      if (scratchesData.scratches) setScratches(scratchesData.scratches);
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -394,10 +415,10 @@ export default function WorkspaceDetailPage() {
   // Unified item type for sorting
   type UnifiedItem = {
     id: string;
-    type: "note" | "canvas" | "link" | "document";
+    type: "note" | "canvas" | "link" | "document" | "scratch";
     name: string;
     created_at: string;
-    data: Note | Canvas | LinkItem | Document;
+    data: Note | Canvas | LinkItem | Document | Scratch;
   };
 
   // Create unified list of all items
@@ -406,10 +427,19 @@ export default function WorkspaceDetailPage() {
     ...canvases.map(c => ({ id: c.id, type: "canvas" as const, name: c.name, created_at: c.created_at, data: c })),
     ...links.map(l => ({ id: l.id, type: "link" as const, name: l.title || l.url, created_at: l.created_at, data: l })),
     ...rootDocuments.map(d => ({ id: d.id, type: "document" as const, name: d.title, created_at: d.created_at, data: d })),
+    ...scratches.map(s => ({ id: s.id, type: "scratch" as const, name: s.title, created_at: s.created_at, data: s })),
   ];
 
+  // Filter items by search query
+  const filteredItems = searchQuery.trim()
+    ? allItems.filter(item => 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.type.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : allItems;
+
   // Sort unified items
-  const sortedItems = [...allItems].sort((a, b) => {
+  const sortedItems = [...filteredItems].sort((a, b) => {
     let comparison = 0;
     switch (sortBy) {
       case "date_added":
@@ -431,12 +461,71 @@ export default function WorkspaceDetailPage() {
     setFolders(prev => [...prev, { ...folder, workspace_id: workspaceId || "", created_at: new Date().toISOString() }]);
   };
 
+  // Handle drag-and-drop to folder for all item types
+  const handleDropToFolder = async (folderId: string, itemId: string, itemType: string) => {
+    try {
+      let endpoint = "";
+      let body: any = {};
+
+      switch (itemType) {
+        case "document":
+          endpoint = "/api/documents/move";
+          body = { documentIds: [itemId], folderId };
+          break;
+        case "note":
+          endpoint = `/api/notes/${itemId}`;
+          body = { folder_id: folderId };
+          break;
+        case "link":
+          endpoint = `/api/links/${itemId}`;
+          body = { folder_id: folderId };
+          break;
+        case "canvas":
+          endpoint = `/api/canvas/${itemId}`;
+          body = { folder_id: folderId };
+          break;
+        case "scratch":
+          endpoint = `/api/scratches/${itemId}`;
+          body = { folder_id: folderId };
+          break;
+        default:
+          return;
+      }
+
+      const method = itemType === "document" ? "PATCH" : "PATCH";
+      await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      // Update local state based on item type
+      if (itemType === "document") {
+        setDocuments(docs => docs.map(d => 
+          d.id === itemId ? { ...d, folder_id: folderId } : d
+        ));
+      } else if (itemType === "note") {
+        setNotes(prev => prev.filter(n => n.id !== itemId));
+      } else if (itemType === "link") {
+        setLinks(prev => prev.filter(l => l.id !== itemId));
+      } else if (itemType === "canvas") {
+        setCanvases(prev => prev.filter(c => c.id !== itemId));
+      } else if (itemType === "scratch") {
+        setScratches(prev => prev.filter(s => s.id !== itemId));
+      }
+    } catch (error) {
+      console.error(`Failed to move ${itemType} to folder:`, error);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto">
         <div className="p-6 pr-8">
           {/* Workspace Toolbar */}
           <WorkspaceToolbar
             workspaceId={workspaceId || ""}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
             sortBy={sortBy}
             onSortByChange={setSortBy}
             sortDirection={sortDirection}
@@ -446,6 +535,21 @@ export default function WorkspaceDetailPage() {
             onFolderCreated={handleFolderCreated}
             onCreated={() => setRefreshKey(k => k + 1)}
           />
+
+          {/* Statistics & Activity Section */}
+          {!loading && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+              <WorkspaceStats
+                notesCount={notes.length}
+                canvasesCount={canvases.length}
+                linksCount={links.length}
+                mediaCount={documents.length}
+                scratchesCount={scratches.length}
+                foldersCount={folders.length}
+              />
+              <ActivityChart workspaceId={workspaceId || ""} />
+            </div>
+          )}
 
           {/* Content */}
           {loading ? (
@@ -457,112 +561,130 @@ export default function WorkspaceDetailPage() {
                   {/* GRID VIEW */}
                   {viewMode === "grid" && (
                     <div className="flex flex-wrap gap-4">
+                      {/* Folders - droppable */}
                       {folders.map((folder) => {
                         const folderDocs = documents.filter(d => d.folder_id === folder.id);
                         return (
-                          <Link key={`folder-${folder.id}`} href={`/workspace/${workspaceId}/folder/${folder.id}`} className="w-44 cursor-pointer block group">
-                            <div className="h-56 rounded-xl bg-gradient-to-b from-amber-50 to-orange-50 border border-amber-200/50 overflow-hidden">
-                              <AnimatedFolder name={folder.name} fileCount={folderDocs.length} previewFiles={folderDocs.slice(0, 3).map(d => ({ type: d.mime_type, name: d.title, previewUrl: d.previewUrl }))} />
-                            </div>
-                            <p className="text-[10px] truncate flex items-center gap-1 text-muted-foreground mt-2 group-hover:text-amber-600"><FolderClosed className="h-3 w-3 text-amber-500" />{folder.name}</p>
-                          </Link>
+                          <DroppableFolder
+                            key={`folder-${folder.id}`}
+                            folderId={folder.id}
+                            folderName={folder.name}
+                            workspaceId={workspaceId || ""}
+                            fileCount={folderDocs.length}
+                            previewFiles={folderDocs.slice(0, 3).map(d => ({ 
+                              type: d.mime_type, 
+                              name: d.title, 
+                              previewUrl: d.previewUrl 
+                            }))}
+                            onDrop={handleDropToFolder}
+                            acceptTypes={["document", "note", "link", "canvas", "scratch"]}
+                          />
                         );
                       })}
+                      {/* Items - draggable */}
                       {sortedItems.map((item) => {
                         const date = new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
                         if (item.type === "note") {
                           const note = item.data as Note;
                           const plainTitle = stripHtml(note.title) || "Untitled";
                           return (
-                            <div key={`note-${note.id}`} className="w-44">
-                              <NoteCard
-                                note={{
-                                  ...note,
-                                  is_starred: false,
-                                }}
-                                isSelected={false}
-                                onSelect={() => {}}
-                                onClick={() => router.push(`/workspace/${workspaceId}/notes/${note.id}`)}
-                                onOpenInPanel={() => openPanel({
-                                  type: "note",
-                                  itemId: note.id,
-                                  title: plainTitle,
-                                })}
-                              />
-                            </div>
+                            <DraggableItem key={`note-${note.id}`} itemId={note.id} itemType="note">
+                              <div className="w-44">
+                                <NoteCard
+                                  note={{
+                                    ...note,
+                                    is_starred: false,
+                                  }}
+                                  isSelected={false}
+                                  onSelect={() => {}}
+                                  onClick={() => router.push(`/workspace/${workspaceId}/notes/${note.id}`)}
+                                  onOpenInPanel={() => openPanel({
+                                    type: "note",
+                                    itemId: note.id,
+                                    title: plainTitle,
+                                  })}
+                                />
+                              </div>
+                            </DraggableItem>
                           );
                         }
                         if (item.type === "link") {
                           const link = item.data as LinkItem;
                           return (
-                            <LinkCard
-                              key={`link-${link.id}`}
-                              id={link.id}
-                              url={link.url}
-                              title={link.title}
-                              thumbnailUrl={link.thumbnail_url}
-                              linkType={link.link_type}
-                              isSelected={false}
-                              onCheckboxClick={() => {}}
-                              workspaceId={workspaceId || ""}
-                            />
+                            <DraggableItem key={`link-${link.id}`} itemId={link.id} itemType="link">
+                              <LinkCard
+                                id={link.id}
+                                url={link.url}
+                                title={link.title}
+                                thumbnailUrl={link.thumbnail_url}
+                                linkType={link.link_type}
+                                isSelected={false}
+                                onCheckboxClick={() => {}}
+                                workspaceId={workspaceId || ""}
+                              />
+                            </DraggableItem>
                           );
                         }
                         if (item.type === "canvas") {
                           const canvas = item.data as Canvas;
                           return (
-                            <div key={`canvas-${canvas.id}`} className="w-80">
-                              <CanvasCard
-                                id={canvas.id}
-                                name={canvas.name}
-                                createdAt={canvas.created_at}
-                                workspaceId={workspaceId || ""}
-                              />
-                            </div>
+                            <DraggableItem key={`canvas-${canvas.id}`} itemId={canvas.id} itemType="canvas">
+                              <div className="w-80">
+                                <CanvasCard
+                                  id={canvas.id}
+                                  name={canvas.name}
+                                  createdAt={canvas.created_at}
+                                  workspaceId={workspaceId || ""}
+                                />
+                              </div>
+                            </DraggableItem>
                           );
                         }
                         if (item.type === "document") {
                           const doc = item.data as Document;
                           if (doc.mime_type?.startsWith("image/") && doc.previewUrl) {
                             return (
-                              <MediaCard
-                                key={`doc-${doc.id}`}
-                                src={doc.previewUrl}
-                                alt={doc.title}
-                                title={doc.title}
-                                isSelected={selectedDocs.has(doc.id)}
-                                isStarred={doc.is_starred}
-                                onCheckboxClick={() => toggleDocSelection(doc.id)}
-                                href={`/workspace/${workspaceId}/document/${doc.id}`}
-                              />
+                              <DraggableItem key={`doc-${doc.id}`} itemId={doc.id} itemType="document">
+                                <MediaCard
+                                  src={doc.previewUrl}
+                                  alt={doc.title}
+                                  title={doc.title}
+                                  isSelected={selectedDocs.has(doc.id)}
+                                  isStarred={doc.is_starred}
+                                  onCheckboxClick={() => toggleDocSelection(doc.id)}
+                                  href={`/workspace/${workspaceId}/document/${doc.id}`}
+                                />
+                              </DraggableItem>
                             );
                           }
                           // Video with preview
                           if (doc.mime_type?.startsWith("video/") && doc.previewUrl) {
                             return (
-                              <VideoCard
-                                key={`doc-${doc.id}`}
-                                src={doc.previewUrl}
-                                alt={doc.title}
-                                title={doc.title}
-                                isSelected={selectedDocs.has(doc.id)}
-                                isStarred={doc.is_starred}
-                                onCheckboxClick={() => toggleDocSelection(doc.id)}
-                                href={`/workspace/${workspaceId}/document/${doc.id}`}
-                              />
+                              <DraggableItem key={`doc-${doc.id}`} itemId={doc.id} itemType="document">
+                                <VideoCard
+                                  src={doc.previewUrl}
+                                  alt={doc.title}
+                                  title={doc.title}
+                                  isSelected={selectedDocs.has(doc.id)}
+                                  isStarred={doc.is_starred}
+                                  onCheckboxClick={() => toggleDocSelection(doc.id)}
+                                  href={`/workspace/${workspaceId}/document/${doc.id}`}
+                                />
+                              </DraggableItem>
                             );
                           }
                           // PDF with preview
                           if (doc.mime_type === "application/pdf" && doc.previewUrl) {
                             return (
-                              <div key={`doc-${doc.id}`} className="w-44 cursor-pointer relative group">
+                              <DraggableItem key={`doc-${doc.id}`} itemId={doc.id} itemType="document">
+                                <div className="w-44 cursor-pointer relative group">
                                 <button 
                                   type="button" 
                                   onClick={(e) => { e.stopPropagation(); toggleDocSelection(doc.id); }} 
                                   className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
                                     selectedDocs.has(doc.id) 
-                                      ? "bg-emerald-600 border-emerald-600 text-white opacity-100" 
-                                      : "bg-white/80 border-gray-300 hover:border-emerald-500 opacity-0 group-hover:opacity-100"
+                                      ? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white opacity-100" 
+                                      : "bg-white/80 border-gray-300 hover:border-[var(--accent-primary)] opacity-0 group-hover:opacity-100"
                                   }`}
                                 >
                                   {selectedDocs.has(doc.id) && <Check className="h-4 w-4" />}
@@ -573,7 +695,7 @@ export default function WorkspaceDetailPage() {
                                   </div>
                                 )}
                                 <Link href={`/workspace/${workspaceId}/document/${doc.id}`}>
-                                  <div className={`h-56 rounded-xl overflow-hidden border bg-white relative ${selectedDocs.has(doc.id) ? "ring-2 ring-emerald-500" : ""}`}>
+                                  <div className={`h-56 rounded-xl overflow-hidden border bg-white relative ${selectedDocs.has(doc.id) ? "ring-2 ring-[var(--accent-primary)]" : ""}`}>
                                     <iframe 
                                       src={`${doc.previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
                                       className="w-full h-full pointer-events-none scale-100"
@@ -587,18 +709,20 @@ export default function WorkspaceDetailPage() {
                                     </div>
                                   </div>
                                 </Link>
-                              </div>
+                                </div>
+                              </DraggableItem>
                             );
                           }
                           return (
-                            <div key={`doc-${doc.id}`} className="w-44 cursor-pointer relative group">
+                            <DraggableItem key={`doc-${doc.id}`} itemId={doc.id} itemType="document">
+                              <div className="w-44 cursor-pointer relative group">
                               <button 
                                 type="button" 
                                 onClick={(e) => { e.stopPropagation(); toggleDocSelection(doc.id); }} 
                                 className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
                                   selectedDocs.has(doc.id) 
-                                    ? "bg-emerald-600 border-emerald-600 text-white opacity-100" 
-                                    : "bg-white/80 border-gray-300 hover:border-emerald-500 opacity-0 group-hover:opacity-100"
+                                    ? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white opacity-100" 
+                                    : "bg-white/80 border-gray-300 hover:border-[var(--accent-primary)] opacity-0 group-hover:opacity-100"
                                 }`}
                               >
                                 {selectedDocs.has(doc.id) && <Check className="h-4 w-4" />}
@@ -609,7 +733,7 @@ export default function WorkspaceDetailPage() {
                                 </div>
                               )}
                               <Link href={`/workspace/${workspaceId}/document/${doc.id}`}>
-                                <div className={`h-56 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border ${selectedDocs.has(doc.id) ? "ring-2 ring-emerald-500" : ""}`}>
+                                <div className={`h-56 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border ${selectedDocs.has(doc.id) ? "ring-2 ring-[var(--accent-primary)]" : ""}`}>
                                   <File className="h-12 w-12 text-gray-400" />
                                 </div>
                                 <p className="mt-1 text-[10px] truncate flex items-center gap-1 text-muted-foreground">
@@ -617,7 +741,23 @@ export default function WorkspaceDetailPage() {
                                   {doc.title}
                                 </p>
                               </Link>
-                            </div>
+                              </div>
+                            </DraggableItem>
+                          );
+                        }
+                        if (item.type === "scratch") {
+                          const scratch = item.data as Scratch;
+                          return (
+                            <DraggableItem key={`scratch-${scratch.id}`} itemId={scratch.id} itemType="scratch">
+                              <div className="w-44">
+                                <ScratchCard
+                                  scratch={scratch}
+                                  isSelected={false}
+                                  onSelect={() => {}}
+                                  onClick={() => router.push(`/workspace/${workspaceId}/scretch/${scratch.id}`)}
+                                />
+                              </div>
+                            </DraggableItem>
                           );
                         }
                         return null;
@@ -654,7 +794,7 @@ export default function WorkspaceDetailPage() {
                                 <div className="w-4 h-4 rounded border-2 border-gray-300" />
                               </div>
                               <Link href={`/workspace/${workspaceId}/notes/${note.id}`} className="flex-1 flex items-center gap-4 p-3 rounded-xl border hover:bg-muted/50 transition-all cursor-pointer">
-                                <div className="w-14 h-14 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center flex-shrink-0"><FileText className="h-6 w-6 text-emerald-600" /></div>
+                                <div className="w-14 h-14 rounded-lg bg-[var(--accent-primary)]/10 border border-[var(--accent-primary)]/30 flex items-center justify-center flex-shrink-0"><FileText className="h-6 w-6 text-[var(--accent-primary-light)]" /></div>
                                 <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{plainTitle}</p><p className="text-xs text-muted-foreground">{date} · Note</p></div>
                               </Link>
                             </div>
@@ -712,13 +852,13 @@ export default function WorkspaceDetailPage() {
                                 onClick={() => toggleDocSelection(doc.id)}
                                 className={`w-5 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                               >
-                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-emerald-600 border-emerald-600" : "border-gray-300 hover:border-emerald-500"}`}>
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-[var(--accent-primary)] border-[var(--accent-primary)]" : "border-gray-300 hover:border-[var(--accent-primary)]"}`}>
                                   {isSelected && <Check className="h-3 w-3 text-white" />}
                                 </div>
                               </button>
                               <Link 
                                 href={`/workspace/${workspaceId}/document/${doc.id}`}
-                                className={`flex-1 flex items-center gap-4 p-3 rounded-xl border hover:bg-muted/50 transition-all cursor-pointer ${isSelected ? "ring-2 ring-emerald-500 bg-emerald-50/30" : ""}`}
+                                className={`flex-1 flex items-center gap-4 p-3 rounded-xl border hover:bg-muted/50 transition-all cursor-pointer ${isSelected ? "ring-2 ring-[var(--accent-primary)] bg-[var(--accent-primary)]/10/30" : ""}`}
                               >
                                 {doc.mime_type?.startsWith("image/") && doc.previewUrl ? (
                                   <img src={doc.previewUrl} alt={doc.title} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
@@ -732,6 +872,20 @@ export default function WorkspaceDetailPage() {
                                   </p>
                                   <p className="text-xs text-muted-foreground">{date} · Image</p>
                                 </div>
+                              </Link>
+                            </div>
+                          );
+                        }
+                        if (item.type === "scratch") {
+                          const scratch = item.data as Scratch;
+                          return (
+                            <div key={`scratch-${scratch.id}`} className="group flex items-center gap-2">
+                              <div className="w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="w-4 h-4 rounded border-2 border-gray-300" />
+                              </div>
+                              <Link href={`/workspace/${workspaceId}/scretch/${scratch.id}`} className="flex-1 flex items-center gap-4 p-3 rounded-xl border hover:bg-muted/50 transition-all cursor-pointer">
+                                <div className="w-14 h-14 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center flex-shrink-0"><Pencil className="h-6 w-6 text-violet-600" /></div>
+                                <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{scratch.title || "Untitled"}</p><p className="text-xs text-muted-foreground">{date} · Scratch</p></div>
                               </Link>
                             </div>
                           );
@@ -782,14 +936,14 @@ export default function WorkspaceDetailPage() {
                               onClick={() => isDoc && docId && toggleDocSelection(docId)}
                               className={`w-5 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                             >
-                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-emerald-600 border-emerald-600" : "border-gray-300 hover:border-emerald-500"}`}>
+                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-[var(--accent-primary)] border-[var(--accent-primary)]" : "border-gray-300 hover:border-[var(--accent-primary)]"}`}>
                                 {isSelected && <Check className="h-3 w-3 text-white" />}
                               </div>
                             </button>
                             {isDoc ? (
                               <Link 
                                 href={`/workspace/${workspaceId}/document/${docId}`}
-                                className={`flex-1 flex items-center gap-3 px-4 py-2.5 border rounded-lg hover:bg-muted/50 cursor-pointer ${isSelected ? "ring-2 ring-emerald-500 bg-emerald-50/30" : ""}`}
+                                className={`flex-1 flex items-center gap-3 px-4 py-2.5 border rounded-lg hover:bg-muted/50 cursor-pointer ${isSelected ? "ring-2 ring-[var(--accent-primary)] bg-[var(--accent-primary)]/10/30" : ""}`}
                               >
                                 <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                 <span className="flex-1 text-sm truncate flex items-center gap-2">
@@ -804,7 +958,7 @@ export default function WorkspaceDetailPage() {
                                 href={`/workspace/${workspaceId}/notes/${noteId}`}
                                 className="flex-1 flex items-center gap-3 px-4 py-2.5 border rounded-lg hover:bg-muted/50 cursor-pointer"
                               >
-                                <Icon className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                                <Icon className="h-4 w-4 text-[var(--accent-primary-light)] flex-shrink-0" />
                                 <span className="flex-1 text-sm truncate">{displayName}</span>
                                 <span className="text-xs text-muted-foreground">{date}</span>
                                 <span className="text-xs text-muted-foreground w-16 text-right">{typeLabel}</span>
@@ -900,7 +1054,7 @@ export default function WorkspaceDetailPage() {
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
                       {Array.from(selectedDocs).some(id => documents.find(d => d.id === id)?.is_public) 
-                        ? <Globe className="h-5 w-5 text-emerald-600" />
+                        ? <Globe className="h-5 w-5 text-[var(--accent-primary-light)]" />
                         : <Lock className="h-5 w-5 text-gray-500" />
                       }
                     </div>
@@ -921,7 +1075,7 @@ export default function WorkspaceDetailPage() {
                     }}
                     className={`w-12 h-7 rounded-full transition-colors ${
                       Array.from(selectedDocs).some(id => documents.find(d => d.id === id)?.is_public)
-                        ? "bg-emerald-500"
+                        ? "bg-[var(--accent-primary)]/100"
                         : "bg-gray-200"
                     }`}
                   >
@@ -944,7 +1098,7 @@ export default function WorkspaceDetailPage() {
                           onClick={() => setSharePermission("view")}
                           className={`p-4 rounded-xl border-2 text-left transition-all ${
                             sharePermission === "view" 
-                              ? "border-emerald-500 bg-emerald-50" 
+                              ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10" 
                               : "border-gray-200 hover:border-gray-300"
                           }`}
                         >
@@ -959,7 +1113,7 @@ export default function WorkspaceDetailPage() {
                           onClick={() => setSharePermission("edit")}
                           className={`p-4 rounded-xl border-2 text-left transition-all ${
                             sharePermission === "edit" 
-                              ? "border-emerald-500 bg-emerald-50" 
+                              ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10" 
                               : "border-gray-200 hover:border-gray-300"
                           }`}
                         >

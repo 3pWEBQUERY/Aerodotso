@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, ImageIcon, Check, Search } from "lucide-react";
 
 const EMPTY_IDS: string[] = [];
@@ -19,6 +19,8 @@ interface AddMediaPopoverProps {
   onAddMedia: (mediaIds: string[]) => void;
   onAddDocuments?: (documents: MediaDocument[]) => void;
   excludeIds?: string[];
+  singleSelect?: boolean;
+  title?: string;
 }
 
 export function AddMediaPopover({
@@ -28,11 +30,14 @@ export function AddMediaPopover({
   onAddMedia,
   onAddDocuments,
   excludeIds = EMPTY_IDS,
+  singleSelect = false,
+  title,
 }: AddMediaPopoverProps) {
   const [documents, setDocuments] = useState<MediaDocument[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const excludeKey = useMemo(() => JSON.stringify(excludeIds), [excludeIds]);
 
   const fetchDocuments = useCallback(async () => {
     if (!workspaceId || !isOpen) return;
@@ -53,7 +58,7 @@ export function AddMediaPopover({
     } finally {
       setLoading(false);
     }
-  }, [workspaceId, isOpen, excludeIds]);
+  }, [workspaceId, isOpen, excludeKey]);
 
   useEffect(() => {
     fetchDocuments();
@@ -67,15 +72,20 @@ export function AddMediaPopover({
   }, [isOpen]);
 
   const toggleSelection = (id: string) => {
-    setSelectedIds((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
+    if (singleSelect) {
+      // In single select mode, replace selection
+      setSelectedIds(new Set([id]));
+    } else {
+      setSelectedIds((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) {
+          newSet.delete(id);
+        } else {
+          newSet.add(id);
+        }
+        return newSet;
+      });
+    }
   };
 
   const handleAdd = () => {
@@ -101,7 +111,7 @@ export function AddMediaPopover({
       <div className="bg-white rounded-xl shadow-xl w-[90vw] max-w-[900px] max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="text-lg font-semibold">Add Media from Workspace</h2>
+          <h2 className="text-lg font-semibold">{title || "Add Media from Workspace"}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -120,7 +130,7 @@ export function AddMediaPopover({
               placeholder="Search media..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)]"
             />
           </div>
         </div>
@@ -145,7 +155,7 @@ export function AddMediaPopover({
                   onClick={() => toggleSelection(doc.id)}
                   className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                     selectedIds.has(doc.id)
-                      ? "border-emerald-500 ring-2 ring-emerald-500/20"
+                      ? "border-[var(--accent-primary)] ring-2 ring-[var(--accent-primary)]/20"
                       : "border-transparent hover:border-gray-300"
                   }`}
                 >
@@ -162,7 +172,7 @@ export function AddMediaPopover({
                   )}
                   {/* Selection indicator */}
                   {selectedIds.has(doc.id) && (
-                    <div className="absolute top-2 right-2 w-6 h-6 bg-emerald-500 rounded-xl flex items-center justify-center">
+                    <div className="absolute top-2 right-2 w-6 h-6 bg-[var(--accent-primary)]/100 rounded-xl flex items-center justify-center">
                       <Check className="h-4 w-4 text-white" />
                     </div>
                   )}
@@ -193,9 +203,9 @@ export function AddMediaPopover({
               type="button"
               onClick={handleAdd}
               disabled={selectedIds.size === 0}
-              className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm bg-[var(--accent-primary)] text-white rounded-lg hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Add Selected
+              {singleSelect ? "Auswählen" : "Add Selected"}
             </button>
           </div>
         </div>

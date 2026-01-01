@@ -12,12 +12,14 @@ export type NodeType =
   | 'video' 
   | 'document' 
   | 'note' 
+  | 'postit'
   | 'ai-chat' 
   | 'ai-generator' 
   | 'group'
   | 'audio'
   | 'url'
-  | 'social-post';
+  | 'social-post'
+  | 'shape';
 
 export type ConnectionType = 
   | 'reference'      // Used as reference/inspiration
@@ -98,6 +100,22 @@ export interface NoteNodeData extends BaseNodeData {
   textColor?: string;
   fontSize?: 'small' | 'medium' | 'large';
   isPinned?: boolean;
+  databaseNoteId?: string; // ID of the synced note in the database
+}
+
+export interface PostItCheckItem {
+  id: string;
+  text: string;
+  checked: boolean;
+  isCheckbox?: boolean; // false = plain text, true = checkbox item
+  highlighted?: boolean;
+  highlightColor?: string;
+}
+
+export interface PostItNodeData extends BaseNodeData {
+  type: 'postit';
+  items: PostItCheckItem[];
+  backgroundColor?: 'green' | 'yellow' | 'pink' | 'blue' | 'orange' | 'purple';
 }
 
 export interface UrlNodeData extends BaseNodeData {
@@ -170,18 +188,49 @@ export interface SocialPostNodeData extends BaseNodeData {
   lastRefreshed?: Date;
 }
 
+export type ShapeType = 'rectangle' | 'circle' | 'triangle';
+
+export type ShapeBackgroundColor = 
+  | 'transparent'
+  | '#ffffff'  // white
+  | '#e5e7eb'  // gray
+  | '#fef3c7'  // yellow
+  | '#fed7aa'  // orange
+  | '#fecaca'  // red/pink
+  | '#d9f99d'  // lime
+  | '#bbf7d0'  // green
+  | '#a5f3fc'  // cyan
+  | '#bfdbfe'  // blue
+  | '#ddd6fe'  // purple
+  | '#fbcfe8'  // pink
+  | '#1f2937'; // dark
+
+export interface ShapeNodeData extends BaseNodeData {
+  type: 'shape';
+  shapeType: ShapeType;
+  width: number;
+  height: number;
+  backgroundColor: ShapeBackgroundColor;
+  hasShadow: boolean;
+  hasRoundedCorners: boolean;
+  borderColor?: string;
+  borderWidth?: number;
+}
+
 // Union type for all node data types
 export type CanvasNodeData = 
   | ImageNodeData 
   | VideoNodeData 
   | DocumentNodeData 
   | NoteNodeData 
+  | PostItNodeData
   | UrlNodeData
   | AIChatNodeData 
   | AIGeneratorNodeData 
   | GroupNodeData
   | AudioNodeData
-  | SocialPostNodeData;
+  | SocialPostNodeData
+  | ShapeNodeData;
 
 // ============================================================================
 // AI TYPES
@@ -194,7 +243,7 @@ export type AIModel =
   | 'gpt-4' 
   | 'gpt-4o'
   | 'gemini-pro'
-  | 'gemini-2.0-flash';
+  | 'gemini-3-flash-preview';
 
 export type AIImageProvider = 
   | 'dalle-3' 
@@ -476,10 +525,12 @@ export const NodeSizeDefaults: Record<NodeType, { width: number; height: number 
   'video': { width: 320, height: 240 },
   'document': { width: 240, height: 180 },
   'note': { width: 240, height: 160 },
+  'postit': { width: 180, height: 140 },
   'ai-chat': { width: 360, height: 400 },
   'ai-generator': { width: 340, height: 380 },
   'group': { width: 400, height: 300 },
   'audio': { width: 280, height: 100 },
   'url': { width: 280, height: 160 },
-  'social-post': { width: 400, height: 450 }
+  'social-post': { width: 400, height: 450 },
+  'shape': { width: 200, height: 100 }
 };

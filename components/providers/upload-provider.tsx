@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { UploadProgress, UploadItem } from "@/components/workspace/upload-progress";
 
 interface UploadContextType {
@@ -28,6 +28,78 @@ interface UploadProviderProps {
 export function UploadProvider({ children }: UploadProviderProps) {
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [showProgress, setShowProgress] = useState(false);
+  const pollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Poll for document analysis status
+  const pollAnalysisStatus = useCallback((uploadId: string, documentId: string) => {
+    // Clear any existing polling for this upload
+    const existingInterval = pollingRef.current.get(uploadId);
+    if (existingInterval) {
+      clearInterval(existingInterval);
+    }
+
+    // Start polling
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/documents/status?documentId=${documentId}`);
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.processed) {
+            // Analysis complete
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === uploadId
+                  ? { ...u, analysisStatus: "done" as const }
+                  : u
+              )
+            );
+            // Stop polling
+            clearInterval(pollInterval);
+            pollingRef.current.delete(uploadId);
+          } else {
+            // Still analyzing
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === uploadId && u.analysisStatus !== "analyzing"
+                  ? { ...u, analysisStatus: "analyzing" as const }
+                  : u
+              )
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Failed to poll analysis status:", error);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    pollingRef.current.set(uploadId, pollInterval);
+
+    // Stop polling after 60 seconds (timeout)
+    setTimeout(() => {
+      const interval = pollingRef.current.get(uploadId);
+      if (interval) {
+        clearInterval(interval);
+        pollingRef.current.delete(uploadId);
+        // Mark as error if still not done
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === uploadId && u.analysisStatus !== "done"
+              ? { ...u, analysisStatus: "error" as const }
+              : u
+          )
+        );
+      }
+    }, 60000);
+  }, []);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      pollingRef.current.forEach((interval) => clearInterval(interval));
+      pollingRef.current.clear();
+    };
+  }, []);
 
   const addUpload = useCallback(async (file: File, workspaceId: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -39,6 +111,7 @@ export function UploadProvider({ children }: UploadProviderProps) {
       fileSize: file.size,
       progress: 0,
       status: "waiting",
+      analysisStatus: "pending",
     };
     
     setUploads((prev) => [...prev, newUpload]);
@@ -78,18 +151,26 @@ export function UploadProvider({ children }: UploadProviderProps) {
       }
 
       const data = await response.json();
+      const documentId = data.document?.id;
 
-      // Update to processing status
+      // Update to done status with document ID, analysis pending
       setUploads((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, status: "processing" as const, progress: 95 } : u))
+        prev.map((u) => (u.id === id ? { 
+          ...u, 
+          status: "done" as const, 
+          progress: 100,
+          documentId,
+          analysisStatus: "pending" as const,
+        } : u))
       );
 
-      // Mark as done after a short delay (processing happens async)
-      setTimeout(() => {
-        setUploads((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, status: "done" as const, progress: 100 } : u))
-        );
-      }, 1000);
+      // Start polling for analysis status if we have a document ID
+      if (documentId) {
+        // Small delay before starting to poll
+        setTimeout(() => {
+          pollAnalysisStatus(id, documentId);
+        }, 1000);
+      }
 
       return data;
     } catch (error) {
@@ -100,7 +181,7 @@ export function UploadProvider({ children }: UploadProviderProps) {
       );
       throw error;
     }
-  }, []);
+  }, [pollAnalysisStatus]);
 
   const cancelUpload = useCallback((id: string) => {
     setUploads((prev) => prev.filter((u) => u.id !== id));

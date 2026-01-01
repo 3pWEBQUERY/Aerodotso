@@ -5,3 +5,4 @@ export { HomeSidebar } from "./home-sidebar";
 export { ChatSidebar } from "./chat-sidebar";
 export { LinksSidebar } from "./links-sidebar";
 export { CanvasSidebar } from "./canvas-sidebar";
+export { ScretchSidebar } from "./scretch-sidebar";

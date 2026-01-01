@@ -141,7 +141,7 @@ export function MediaSidebar({ workspaceId }: MediaSidebarProps) {
 
   const renderDocList = (docs: Document[]) =>
     docs.map((doc) => (
-      <div key={doc.id} className="group flex items-center rounded-md hover:bg-muted mb-0.5 overflow-hidden">
+      <div key={doc.id} className="group flex items-center rounded-md hover:bg-[var(--workspace-sidebar-muted)] mb-0.5 overflow-hidden">
         {editingId === doc.id ? (
           <div className="flex-1 flex items-center gap-2 px-2 py-1">
             {doc.mime_type === "application/pdf" ? (
@@ -163,7 +163,7 @@ export function MediaSidebar({ workspaceId }: MediaSidebarProps) {
                   setEditingId(null);
                 }
               }}
-              className="flex-1 bg-white border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+              className="flex-1 bg-[var(--workspace-sidebar-muted)] border border-[var(--workspace-sidebar-border)] rounded px-1 py-0.5 text-xs text-[var(--workspace-sidebar-foreground)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
               autoFocus
               onClick={(e) => e.stopPropagation()}
             />
@@ -172,7 +172,7 @@ export function MediaSidebar({ workspaceId }: MediaSidebarProps) {
           <>
             <Link
               href={`/workspace/${workspaceId}/document/${doc.id}`}
-              className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground"
+              className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-xs text-[var(--workspace-sidebar-muted-foreground)]"
             >
               {doc.mime_type === "application/pdf" ? (
                 <img src="/pdf-icon.svg" alt="PDF" className="h-3 w-3 flex-shrink-0" />
@@ -186,7 +186,7 @@ export function MediaSidebar({ workspaceId }: MediaSidebarProps) {
               <button
                 type="button"
                 onClick={(e) => startEditing(doc, e)}
-                className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                 title="Rename"
               >
                 <Pencil className="h-3 w-3" />
@@ -194,7 +194,7 @@ export function MediaSidebar({ workspaceId }: MediaSidebarProps) {
               <button
                 type="button"
                 onClick={(e) => copyDocumentLink(doc.id, e)}
-                className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-700"
+                className="p-1 hover:bg-[var(--workspace-sidebar-muted)] rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-[var(--workspace-sidebar-foreground)]"
                 title="Copy Link"
               >
                 <Copy className="h-3 w-3" />
@@ -202,7 +202,7 @@ export function MediaSidebar({ workspaceId }: MediaSidebarProps) {
               <button
                 type="button"
                 onClick={(e) => deleteDocument(doc.id, e)}
-                className="p-1 hover:bg-red-100 rounded text-gray-500 hover:text-red-600"
+                className="p-1 hover:bg-red-500/20 rounded text-[var(--workspace-sidebar-muted-foreground)] hover:text-red-400"
                 title="Delete"
               >
                 <Trash2 className="h-3 w-3" />
@@ -214,64 +214,52 @@ export function MediaSidebar({ workspaceId }: MediaSidebarProps) {
     ));
 
   return (
-    <aside className="w-44 flex-shrink-0 border-r text-sm flex flex-col overflow-hidden bg-background">
-      <header className="flex items-center gap-2 px-3 py-2 border-b">
-        <Upload className="h-4 w-4" />
-        <span className="font-medium">Upload</span>
+    <aside className="w-64 flex-shrink-0 rounded-xl text-sm flex flex-col overflow-hidden border border-[var(--workspace-sidebar-border)]" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+      <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--workspace-sidebar-border)] text-[var(--workspace-sidebar-foreground)]">
+        <span className="font-medium">Media</span>
       </header>
-
-      <div className="px-3 py-2 border-b">
-        <button type="button" className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs bg-muted font-medium">
-          <ImageIcon className="h-3.5 w-3.5" />
-          All Media
-        </button>
-      </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {groupedDocs.today.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Today</p>
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2">Today</p>
             {renderDocList(groupedDocs.today)}
           </>
         )}
         
         {groupedDocs.yesterday.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">Yesterday</p>
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">Yesterday</p>
             {renderDocList(groupedDocs.yesterday)}
           </>
         )}
 
         {groupedDocs.pastWeek.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">Past Week</p>
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">Past Week</p>
             {renderDocList(groupedDocs.pastWeek)}
           </>
         )}
 
         {groupedDocs.pastMonth.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">Past Month</p>
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">Past Month</p>
             {renderDocList(groupedDocs.pastMonth)}
           </>
         )}
 
         {groupedDocs.older.length > 0 && (
           <>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 mt-3">Older</p>
+            <p className="text-[10px] text-[var(--workspace-sidebar-muted-foreground)] uppercase tracking-wider mb-2 mt-3">Older</p>
             {renderDocList(groupedDocs.older)}
           </>
         )}
 
         {documents.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4">No files yet</p>
+          <p className="text-xs text-[var(--workspace-sidebar-muted-foreground)] text-center py-4">No files yet</p>
         )}
       </div>
 
-      <div className="border-t px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-        <Trash2 className="h-3.5 w-3.5" />
-        <span>Trash</span>
-      </div>
     </aside>
   );
 }

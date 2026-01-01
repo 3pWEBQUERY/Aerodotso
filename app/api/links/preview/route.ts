@@ -146,11 +146,61 @@ export async function POST(req: NextRequest) {
 
     // Special handling for Twitter/X
     if (detected?.platform === 'twitter') {
-      // Get oEmbed data for title/author
+      // Extract tweet ID and username from URL
+      const tweetMatch = validUrl.toString().match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status\/(\d+)/i);
+      
+      if (tweetMatch) {
+        const username = tweetMatch[1];
+        const tweetId = tweetMatch[2];
+        
+        try {
+          // Use FixTweet API which returns JSON with tweet data including media
+          const apiUrl = `https://api.fxtwitter.com/${username}/status/${tweetId}`;
+          const apiResponse = await fetch(apiUrl, {
+            headers: {
+              "Accept": "application/json",
+            },
+            signal: AbortSignal.timeout(8000),
+          });
+          
+          if (apiResponse.ok) {
+            const data = await apiResponse.json();
+            const tweet = data.tweet;
+            
+            if (tweet) {
+              // Get the best image: media image > external media > author avatar
+              let image = null;
+              
+              // Check for media (photos/videos)
+              if (tweet.media?.photos && tweet.media.photos.length > 0) {
+                image = tweet.media.photos[0].url;
+              } else if (tweet.media?.videos && tweet.media.videos.length > 0) {
+                image = tweet.media.videos[0].thumbnail_url;
+              } else if (tweet.media?.external) {
+                image = tweet.media.external.thumbnail_url;
+              } else if (tweet.author?.avatar_url) {
+                image = tweet.author.avatar_url;
+              }
+              
+              return NextResponse.json({
+                title: tweet.author?.name ? `${tweet.author.name} on X` : "X Post",
+                description: tweet.text?.slice(0, 200) || "",
+                image: image,
+                url: validUrl.toString(),
+                domain: "x.com",
+                platform: "twitter",
+              });
+            }
+          }
+        } catch (fxError) {
+          console.error("fxtwitter API failed:", fxError);
+        }
+      }
+      
+      // Fallback: use X logo
+      const xLogoUrl = "https://abs.twimg.com/icons/apple-touch-icon-192x192.png";
       const twitterOembed = await fetchOEmbed(validUrl.toString(), 'twitter');
       
-      // Twitter blocks most scraping - use oEmbed title with X logo as fallback
-      const xLogoUrl = "https://abs.twimg.com/icons/apple-touch-icon-192x192.png";
       return NextResponse.json({
         title: twitterOembed?.title || "X Post",
         description: twitterOembed?.author ? `@${twitterOembed.author}` : "",

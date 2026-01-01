@@ -172,12 +172,12 @@ export function CommandPalette({ isOpen, onClose, onAddImage }: CommandPalettePr
       action: () => addNodeAtCenter("url", { url: "" }),
     },
     {
-      id: "add-group",
-      label: "Add Group",
-      description: "Create a grouping node",
+      id: "add-folder",
+      label: "Add Folder",
+      description: "Create a folder node",
       icon: Folder,
       category: "add",
-      action: () => addNodeAtCenter("group", { childNodeIds: [], width: 300, height: 200 }),
+      action: () => addNodeAtCenter("folder", { childNodeIds: [], width: 200, height: 240, description: "" }),
     },
 
     // Edit commands
@@ -436,12 +436,12 @@ export function CommandPalette({ isOpen, onClose, onAddImage }: CommandPalettePr
                       onClick={() => !cmd.disabled && cmd.action()}
                       disabled={cmd.disabled}
                       className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
-                        isSelected ? "bg-emerald-50" : "hover:bg-gray-50"
+                        isSelected ? "bg-[var(--accent-primary)]/10" : "hover:bg-gray-50"
                       } ${cmd.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
-                      <Icon className={`h-4 w-4 ${isSelected ? "text-emerald-600" : "text-gray-400"}`} />
+                      <Icon className={`h-4 w-4 ${isSelected ? "text-[var(--accent-primary-light)]" : "text-gray-400"}`} />
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${isSelected ? "text-emerald-700 font-medium" : "text-gray-700"}`}>
+                        <p className={`text-sm ${isSelected ? "text-[var(--accent-primary)] font-medium" : "text-gray-700"}`}>
                           {cmd.label}
                         </p>
                         {cmd.description && (

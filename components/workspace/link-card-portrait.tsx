@@ -24,7 +24,7 @@ function getLinkTypeBadge(linkType?: string): { label: string; color: string } {
     case "github": return { label: "GitHub", color: "bg-gray-800" };
     case "figma": return { label: "Figma", color: "bg-purple-500" };
     case "notion": return { label: "Notion", color: "bg-gray-900" };
-    case "article": return { label: "Article", color: "bg-emerald-600" };
+    case "article": return { label: "Article", color: "bg-[var(--accent-primary)]" };
     case "pdf": return { label: "PDF", color: "bg-red-500" };
     case "image": return { label: "Image", color: "bg-indigo-500" };
     case "audio": return { label: "Audio", color: "bg-violet-500" };
@@ -50,7 +50,7 @@ export function PortraitLinkCard({
         target="_blank"
         rel="noopener noreferrer"
         className={`group relative block h-56 overflow-hidden bg-gray-900 rounded-2xl transition-all cursor-pointer ${
-          isSelected ? "ring-2 ring-emerald-500 ring-offset-2" : "hover:ring-2 hover:ring-gray-300"
+          isSelected ? "ring-2 ring-[var(--accent-primary)] ring-offset-2" : "hover:ring-2 hover:ring-gray-300"
         }`}
       >
         {/* Thumbnail */}
@@ -70,7 +70,7 @@ export function PortraitLinkCard({
         <div
           className={`absolute top-3 left-3 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm ${
             isSelected
-              ? "bg-emerald-500 border-emerald-500"
+              ? "bg-[var(--accent-primary)]/100 border-[var(--accent-primary)]"
               : "border-white/80 bg-black/30 opacity-0 group-hover:opacity-100"
           }`}
           onClick={onCheckboxClick}

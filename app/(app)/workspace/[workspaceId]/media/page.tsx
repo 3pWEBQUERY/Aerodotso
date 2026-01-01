@@ -1,12 +1,14 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ImageIcon, Trash2, FileText, File, Upload, Check, Star, X, PanelRight, Pencil, Download, Maximize2, Home, ChevronRight, FolderClosed } from "lucide-react";
 import Link from "next/link";
 import { useUpload } from "@/components/providers/upload-provider";
 import { AnimatedFolder } from "@/components/workspace/animated-folder";
 import { SelectionActionBar } from "@/components/workspace/selection-action-bar";
+import { DraggableItem } from "@/components/workspace/draggable-item";
+import { DroppableFolder } from "@/components/workspace/droppable-folder";
 import { PageToolbar, ViewMode, SortOption } from "@/components/workspace/page-toolbar";
 import { MediaCard } from "@/components/workspace/media-card";
 import { VideoCard } from "@/components/workspace/video-card";
@@ -146,9 +148,9 @@ export default function WorkspaceMediaPage() {
     return sortAsc ? -cmp : cmp;
   });
 
-  // AI Search
-  const handleSearch = async () => {
-    if (!searchQuery.trim() || !workspaceId) {
+  // AI Search - auto-trigger with debounce
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim() || !workspaceId) {
       setSearchResults(null);
       return;
     }
@@ -159,7 +161,7 @@ export default function WorkspaceMediaPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: searchQuery,
+          query: query,
           workspaceId,
           searchTypes: ["semantic", "text", "visual"],
           limit: 50,
@@ -168,16 +170,18 @@ export default function WorkspaceMediaPage() {
       
       const data = await res.json();
       if (data.results) {
-        // Map search results to Document format
-        const mappedResults: Document[] = data.results.map((r: any) => ({
-          id: r.document_id,
-          title: r.title,
-          mime_type: r.mime_type,
-          size_bytes: 0,
-          created_at: new Date().toISOString(),
-          previewUrl: r.previewUrl || r.thumbnailUrl,
-          is_starred: false,
-        }));
+        // Map search results to Document format - only keep documents (media)
+        const mappedResults: Document[] = data.results
+          .filter((r: any) => r.result_type === "document" || !r.result_type)
+          .map((r: any) => ({
+            id: r.document_id,
+            title: r.title,
+            mime_type: r.mime_type,
+            size_bytes: 0,
+            created_at: r.created_at || new Date().toISOString(),
+            previewUrl: r.previewUrl || r.thumbnailUrl,
+            is_starred: false,
+          }));
         setSearchResults(mappedResults);
       }
     } catch (error) {
@@ -185,7 +189,21 @@ export default function WorkspaceMediaPage() {
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [workspaceId]);
+
+  // Auto-search with debounce when query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+
+    const debounceTimer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, handleSearch]);
 
   // Clear search
   const clearSearch = () => {
@@ -280,6 +298,22 @@ export default function WorkspaceMediaPage() {
     }
   };
 
+  // Handle drag-and-drop to folder
+  const handleDropToFolder = async (folderId: string, itemId: string, itemType: string) => {
+    if (itemType !== "document") return;
+    try {
+      await fetch("/api/documents/move", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentIds: [itemId], folderId }),
+      });
+      setDocuments(docs => docs.map(d => 
+        d.id === itemId ? { ...d, folder_id: folderId } : d
+      ));
+    } catch (error) {
+      console.error("Failed to move to folder:", error);
+    }
+  };
 
   // Group documents by date for sidebar
   const groupDocumentsByDate = useCallback(() => {
@@ -333,7 +367,7 @@ export default function WorkspaceMediaPage() {
           pageType="media"
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
-          onSearch={handleSearch}
+          onSearch={() => handleSearch(searchQuery)}
           isSearching={isSearching}
           sortBy={sortBy}
           onSortByChange={setSortBy}
@@ -351,7 +385,7 @@ export default function WorkspaceMediaPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
+                className="flex items-center gap-2 px-3 py-1.5 bg-[var(--accent-primary)] text-white text-sm rounded-lg hover:bg-[var(--accent-primary-hover)]"
               >
                 <Upload className="h-4 w-4" />
                 Upload
@@ -369,7 +403,7 @@ export default function WorkspaceMediaPage() {
             <button
               type="button"
               onClick={clearSearch}
-              className="text-xs text-emerald-600 hover:underline"
+              className="text-xs text-[var(--accent-primary-light)] hover:underline"
             >
               Clear search
             </button>
@@ -386,113 +420,116 @@ export default function WorkspaceMediaPage() {
             {/* GRID VIEW */}
             {viewMode === "grid" && (
               <div className="flex flex-wrap gap-4">
-                {/* Folders first */}
+                {/* Folders first - droppable */}
                 {folders.map((folder) => {
                   const folderDocs = documents.filter(d => d.folder_id === folder.id);
                   return (
-                    <Link key={`folder-${folder.id}`} href={`/workspace/${workspaceId}/folder/${folder.id}`} className="w-44 cursor-pointer block group">
-                      <div className="h-56 rounded-xl bg-gradient-to-b from-amber-50 to-orange-50 border border-amber-200/50 overflow-hidden">
-                        <AnimatedFolder 
-                          name={folder.name} 
-                          fileCount={folderDocs.length} 
-                          previewFiles={folderDocs.slice(0, 3).map(d => ({ 
-                            type: d.mime_type, 
-                            name: d.title, 
-                            previewUrl: d.previewUrl 
-                          }))} 
-                        />
-                      </div>
-                      <p className="text-[10px] truncate flex items-center gap-1 text-muted-foreground mt-2 group-hover:text-amber-600">
-                        <FolderClosed className="h-3 w-3 text-amber-500" />
-                        {folder.name}
-                      </p>
-                    </Link>
+                    <DroppableFolder
+                      key={`folder-${folder.id}`}
+                      folderId={folder.id}
+                      folderName={folder.name}
+                      workspaceId={workspaceId || ""}
+                      fileCount={folderDocs.length}
+                      previewFiles={folderDocs.slice(0, 3).map(d => ({ 
+                        type: d.mime_type, 
+                        name: d.title, 
+                        previewUrl: d.previewUrl 
+                      }))}
+                      onDrop={handleDropToFolder}
+                      acceptTypes={["document"]}
+                    />
                   );
                 })}
-                {/* Documents */}
+                {/* Documents - draggable */}
                 {filteredDocuments.map((doc) => {
                   if (doc.mime_type?.startsWith("image/") && doc.previewUrl) {
                     return (
-                      <MediaCard
-                        key={doc.id}
-                        src={doc.previewUrl}
-                        alt={doc.title}
-                        title={doc.title}
-                        isSelected={selectedDocs.has(doc.id)}
-                        isStarred={doc.is_starred}
-                        onCheckboxClick={() => toggleDocSelection(doc.id)}
-                        href={`/workspace/${workspaceId}/document/${doc.id}`}
-                      />
+                      <DraggableItem key={doc.id} itemId={doc.id} itemType="document">
+                        <MediaCard
+                          src={doc.previewUrl}
+                          alt={doc.title}
+                          title={doc.title}
+                          isSelected={selectedDocs.has(doc.id)}
+                          isStarred={doc.is_starred}
+                          onCheckboxClick={() => toggleDocSelection(doc.id)}
+                          href={`/workspace/${workspaceId}/document/${doc.id}`}
+                        />
+                      </DraggableItem>
                     );
                   }
 
                   if (doc.mime_type?.startsWith("video/") && doc.previewUrl) {
                     return (
-                      <VideoCard
-                        key={doc.id}
-                        src={doc.previewUrl}
-                        alt={doc.title}
-                        title={doc.title}
-                        isSelected={selectedDocs.has(doc.id)}
-                        isStarred={doc.is_starred}
-                        onCheckboxClick={() => toggleDocSelection(doc.id)}
-                        href={`/workspace/${workspaceId}/document/${doc.id}`}
-                      />
+                      <DraggableItem key={doc.id} itemId={doc.id} itemType="document">
+                        <VideoCard
+                          src={doc.previewUrl}
+                          alt={doc.title}
+                          title={doc.title}
+                          isSelected={selectedDocs.has(doc.id)}
+                          isStarred={doc.is_starred}
+                          onCheckboxClick={() => toggleDocSelection(doc.id)}
+                          href={`/workspace/${workspaceId}/document/${doc.id}`}
+                        />
+                      </DraggableItem>
                     );
                   }
 
                   // PDF with preview
                   if (doc.mime_type === "application/pdf" && doc.previewUrl) {
                     return (
-                      <div key={doc.id} className="w-44 cursor-pointer relative group">
+                      <DraggableItem key={doc.id} itemId={doc.id} itemType="document">
+                        <div className="w-44 cursor-pointer relative group">
+                          <button 
+                            type="button" 
+                            onClick={() => toggleDocSelection(doc.id)} 
+                            className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                              selectedDocs.has(doc.id) ? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white opacity-100" : "bg-white/80 border-gray-300 opacity-0 group-hover:opacity-100"
+                            }`}
+                          >
+                            {selectedDocs.has(doc.id) && <Check className="h-4 w-4" />}
+                          </button>
+                          <Link href={`/workspace/${workspaceId}/document/${doc.id}`}>
+                            <div className={`h-56 rounded-xl overflow-hidden bg-white relative ${selectedDocs.has(doc.id) ? "ring-2 ring-[var(--accent-primary)]" : ""}`}>
+                              <iframe 
+                                src={`${doc.previewUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                                className="w-full h-full"
+                                title={doc.title}
+                              />
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-6 pointer-events-none">
+                                <div className="flex items-center gap-1.5">
+                                  <img src="/pdf-icon.svg" alt="PDF" className="h-4 w-4 flex-shrink-0" />
+                                  <span className="text-xs text-white truncate">{doc.title}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
+                      </DraggableItem>
+                    );
+                  }
+                  return (
+                    <DraggableItem key={doc.id} itemId={doc.id} itemType="document">
+                      <div className="w-44 cursor-pointer relative group">
                         <button 
                           type="button" 
                           onClick={() => toggleDocSelection(doc.id)} 
                           className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                            selectedDocs.has(doc.id) ? "bg-emerald-600 border-emerald-600 text-white opacity-100" : "bg-white/80 border-gray-300 opacity-0 group-hover:opacity-100"
+                            selectedDocs.has(doc.id) ? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white opacity-100" : "bg-white/80 border-gray-300 opacity-0 group-hover:opacity-100"
                           }`}
                         >
                           {selectedDocs.has(doc.id) && <Check className="h-4 w-4" />}
                         </button>
                         <Link href={`/workspace/${workspaceId}/document/${doc.id}`}>
-                          <div className={`h-56 rounded-xl overflow-hidden border bg-white relative ${selectedDocs.has(doc.id) ? "ring-2 ring-emerald-500" : ""}`}>
-                            <iframe 
-                              src={`${doc.previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                              className="w-full h-full pointer-events-none"
-                              title={doc.title}
-                            />
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-red-600/90 to-transparent p-2 pt-6">
-                              <div className="flex items-center gap-1.5">
-                                <img src="/pdf-icon.svg" alt="PDF" className="h-4 w-4 flex-shrink-0" />
-                                <span className="text-xs text-white truncate">{doc.title}</span>
-                              </div>
-                            </div>
+                          <div className={`h-56 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border ${selectedDocs.has(doc.id) ? "ring-2 ring-[var(--accent-primary)]" : ""}`}>
+                            <File className="h-12 w-12 text-gray-400" />
                           </div>
+                          <p className="mt-1 text-[10px] truncate flex items-center gap-1 text-muted-foreground">
+                            <File className="h-3 w-3" />
+                            {doc.title}
+                          </p>
                         </Link>
                       </div>
-                    );
-                  }
-                  return (
-                    <div key={doc.id} className="w-44 cursor-pointer relative group">
-                      <button 
-                        type="button" 
-                        onClick={() => toggleDocSelection(doc.id)} 
-                        className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                          selectedDocs.has(doc.id) ? "bg-emerald-600 border-emerald-600 text-white opacity-100" : "bg-white/80 border-gray-300 opacity-0 group-hover:opacity-100"
-                        }`}
-                      >
-                        {selectedDocs.has(doc.id) && <Check className="h-4 w-4" />}
-                      </button>
-                      <Link href={`/workspace/${workspaceId}/document/${doc.id}`}>
-                        <div className={`h-56 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border ${selectedDocs.has(doc.id) ? "ring-2 ring-emerald-500" : ""}`}>
-                          <File className="h-12 w-12 text-gray-400" />
-                        </div>
-                        <p className="mt-1 text-[10px] truncate flex items-center gap-1 text-muted-foreground">
-                          <File className="h-3 w-3" />
-                          {doc.title}
-                        </p>
-                      </Link>
-                    </div>
+                    </DraggableItem>
                   );
                 })}
               </div>
@@ -507,24 +544,26 @@ export default function WorkspaceMediaPage() {
                   return (
                     <div key={doc.id} className="group flex items-center gap-2">
                       <button type="button" onClick={() => toggleDocSelection(doc.id)} className={`w-5 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-emerald-600 border-emerald-600" : "border-gray-300"}`}>
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-[var(--accent-primary)] border-[var(--accent-primary)]" : "border-gray-300"}`}>
                           {isSelected && <Check className="h-3 w-3 text-white" />}
                         </div>
                       </button>
-                      <Link href={`/workspace/${workspaceId}/document/${doc.id}`} className={`flex-1 flex items-center gap-4 p-3 rounded-xl border hover:bg-muted/50 ${isSelected ? "ring-2 ring-emerald-500 bg-emerald-50/30" : ""}`}>
+                      <Link href={`/workspace/${workspaceId}/document/${doc.id}`} className={`flex-1 flex items-center gap-4 rounded-xl border hover:bg-muted/50 overflow-hidden ${isSelected ? "ring-2 ring-[var(--accent-primary)] bg-[var(--accent-primary)]/10/30" : ""}`}>
                         {doc.mime_type?.startsWith("image/") && doc.previewUrl ? (
-                          <img src={doc.previewUrl} alt={doc.title} className="w-14 h-14 rounded-lg object-cover" />
+                          <img src={doc.previewUrl} alt={doc.title} className="w-20 h-16 object-cover flex-shrink-0" />
+                        ) : doc.mime_type?.startsWith("video/") && doc.previewUrl ? (
+                          <video src={doc.previewUrl} className="w-20 h-16 object-cover flex-shrink-0" muted />
                         ) : (
-                          <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center">
+                          <div className="w-20 h-16 bg-gray-100 flex items-center justify-center flex-shrink-0">
                             <ImageIcon className="h-6 w-6 text-gray-400" />
                           </div>
                         )}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 py-3 pr-3">
                           <p className="font-medium text-sm truncate flex items-center gap-1">
                             {doc.title}
                             {doc.is_starred && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
                           </p>
-                          <p className="text-xs text-muted-foreground">{date} · Image</p>
+                          <p className="text-xs text-muted-foreground">{date} · {doc.mime_type?.startsWith("video/") ? "Video" : "Image"}</p>
                         </div>
                       </Link>
                     </div>
@@ -542,11 +581,11 @@ export default function WorkspaceMediaPage() {
                   return (
                     <div key={doc.id} className={`group flex items-center gap-2 ${i > 0 ? "mt-1" : ""}`}>
                       <button type="button" onClick={() => toggleDocSelection(doc.id)} className={`w-5 flex items-center justify-center transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-emerald-600 border-emerald-600" : "border-gray-300"}`}>
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? "bg-[var(--accent-primary)] border-[var(--accent-primary)]" : "border-gray-300"}`}>
                           {isSelected && <Check className="h-3 w-3 text-white" />}
                         </div>
                       </button>
-                      <Link href={`/workspace/${workspaceId}/document/${doc.id}`} className={`flex-1 flex items-center gap-3 px-4 py-2.5 border rounded-lg hover:bg-muted/50 ${isSelected ? "ring-2 ring-emerald-500 bg-emerald-50/30" : ""}`}>
+                      <Link href={`/workspace/${workspaceId}/document/${doc.id}`} className={`flex-1 flex items-center gap-3 px-4 py-2.5 border rounded-lg hover:bg-muted/50 ${isSelected ? "ring-2 ring-[var(--accent-primary)] bg-[var(--accent-primary)]/10/30" : ""}`}>
                         <ImageIcon className="h-4 w-4 text-muted-foreground" />
                         <span className="flex-1 text-sm truncate flex items-center gap-2">
                           {doc.title}
@@ -588,7 +627,7 @@ export default function WorkspaceMediaPage() {
           >
             {/* Resize Handle */}
             <div
-              className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-emerald-500/50 z-10"
+              className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--accent-primary)]/100/50 z-10"
               onMouseDown={() => handleMouseDown(panel.id)}
             />
             
@@ -615,19 +654,19 @@ export default function WorkspaceMediaPage() {
 
             {/* Panel Toolbar */}
             <div className="flex items-center justify-end px-3 py-2 border-b">
-              <div className="flex items-center gap-1 bg-white border rounded-xl shadow-sm px-1.5 py-0.5">
-                <button type="button" className="p-1.5 hover:bg-muted rounded-xl">
-                  <Pencil className="h-3 w-3 text-muted-foreground" />
+              <div className="flex items-center gap-1 border border-[var(--workspace-sidebar-border)] rounded-xl shadow-sm px-1.5 py-0.5" style={{ backgroundColor: 'var(--workspace-sidebar)' }}>
+                <button type="button" className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded-xl">
+                  <Pencil className="h-3 w-3 text-[var(--workspace-sidebar-muted-foreground)]" />
                 </button>
-                <button type="button" className="p-1.5 hover:bg-muted rounded-xl">
-                  <Download className="h-3 w-3 text-muted-foreground" />
+                <button type="button" className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded-xl">
+                  <Download className="h-3 w-3 text-[var(--workspace-sidebar-muted-foreground)]" />
                 </button>
                 <button 
                   type="button"
                   onClick={() => doc.previewUrl && window.open(doc.previewUrl, "_blank")}
-                  className="p-1.5 hover:bg-muted rounded-xl"
+                  className="p-1.5 hover:bg-[var(--workspace-sidebar-muted)] rounded-xl"
                 >
-                  <Maximize2 className="h-3 w-3 text-muted-foreground" />
+                  <Maximize2 className="h-3 w-3 text-[var(--workspace-sidebar-muted-foreground)]" />
                 </button>
               </div>
             </div>

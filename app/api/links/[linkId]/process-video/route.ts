@@ -78,21 +78,48 @@ async function downloadWithCobalt(
       return null;
     }
 
-    // Download the actual file
+    // Download the actual file from Cobalt tunnel
     console.log("Downloading from Cobalt URL:", downloadUrl);
-    const fileResponse = await fetch(downloadUrl);
+    const fileResponse = await fetch(downloadUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
     
     if (!fileResponse.ok) {
-      console.error("Failed to download file from Cobalt URL");
+      console.error("Failed to download file from Cobalt URL:", fileResponse.status);
       return null;
     }
 
-    const arrayBuffer = await fileResponse.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Read the stream completely
+    const reader = fileResponse.body?.getReader();
+    if (!reader) {
+      console.error("No response body reader");
+      return null;
+    }
+
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        totalSize += value.length;
+        // Log progress every 1MB
+        if (totalSize % (1024 * 1024) < value.length) {
+          console.log(`Download progress: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
+        }
+      }
+    }
+
+    // Combine all chunks into a single buffer
+    const buffer = Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
     const contentType = fileResponse.headers.get("content-type") || 
       (format === "audio" ? "audio/mpeg" : "video/mp4");
 
-    console.log(`Downloaded ${format}: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`Downloaded ${format}: ${(buffer.length / 1024 / 1024).toFixed(2)} MB (${contentType})`);
     
     return { buffer, contentType };
   } catch (error) {
@@ -221,7 +248,7 @@ export async function POST(
       });
 
       if (!uploadError) {
-        const { signedUrl } = await storage.createSignedUrl(audioFileName, 60 * 60 * 24 * 365);
+        const { signedUrl } = await storage.createSignedUrl(audioFileName, 60 * 60 * 24 * 7);
         audioUrl = signedUrl;
         console.log("Audio uploaded to storage:", audioUrl);
       }
@@ -239,7 +266,7 @@ export async function POST(
       });
 
       if (!videoUploadError) {
-        const { signedUrl: videoSignedUrl } = await storage.createSignedUrl(videoFileName, 60 * 60 * 24 * 365);
+        const { signedUrl: videoSignedUrl } = await storage.createSignedUrl(videoFileName, 60 * 60 * 24 * 7);
         videoUrl = videoSignedUrl;
         console.log("Video uploaded to storage:", videoUrl);
       }

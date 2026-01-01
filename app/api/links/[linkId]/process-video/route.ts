@@ -3,17 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getRailwayStorage } from "@/lib/railway-storage";
-import { exec } from "child_process";
-import { promisify } from "util";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { readFile, unlink } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
 
-const execAsync = promisify(exec);
-
-// Gemini API Key
+// API Keys
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const COBALT_API_URL = process.env.COBALT_API_URL; // e.g. https://cobalt-xxx.railway.app
+const COBALT_API_KEY = process.env.COBALT_API_KEY;
 
 // Extract YouTube video ID
 function extractYouTubeVideoId(url: string): string | null {
@@ -28,34 +23,82 @@ function extractYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// Download video/audio using system yt-dlp binary
-async function downloadWithYtDlp(
-  videoId: string,
-  outputPath: string,
+// Download video/audio using Cobalt API
+async function downloadWithCobalt(
+  videoUrl: string,
   format: "audio" | "video"
-): Promise<string> {
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
-  
-  let command = `yt-dlp --no-check-certificates --no-warnings -o "${outputPath}"`;
-  
-  // Add headers
-  command += ` --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"`;
-  command += ` --add-header "Accept-Language:de-DE,de;q=0.9,en;q=0.8"`;
-
-  if (format === "audio") {
-    command += ` -x --audio-format mp3 --audio-quality 0`;
-  } else {
-    command += ` -f "best[ext=mp4]/best"`;
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!COBALT_API_URL) {
+    console.error("COBALT_API_URL not configured");
+    return null;
   }
-  
-  command += ` "${url}"`;
-  
-  console.log("Running yt-dlp command:", command);
-  const { stdout, stderr } = await execAsync(command, { timeout: 300000 }); // 5 min timeout
-  if (stderr) console.log("yt-dlp stderr:", stderr);
-  if (stdout) console.log("yt-dlp stdout:", stdout);
-  
-  return outputPath;
+
+  try {
+    console.log(`Calling Cobalt API for ${format}:`, videoUrl);
+    
+    // Call Cobalt API to get download URL
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    };
+    
+    if (COBALT_API_KEY) {
+      headers["Authorization"] = `Api-Key ${COBALT_API_KEY}`;
+    }
+
+    const cobaltResponse = await fetch(`${COBALT_API_URL}/`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        url: videoUrl,
+        videoQuality: "720",
+        audioFormat: "mp3",
+        downloadMode: format === "audio" ? "audio" : "auto",
+      }),
+    });
+
+    if (!cobaltResponse.ok) {
+      const errorText = await cobaltResponse.text();
+      console.error("Cobalt API error:", cobaltResponse.status, errorText);
+      return null;
+    }
+
+    const cobaltData = await cobaltResponse.json();
+    console.log("Cobalt response:", cobaltData);
+
+    // Cobalt returns a URL to download the file
+    if (cobaltData.status === "error") {
+      console.error("Cobalt error:", cobaltData.error?.code);
+      return null;
+    }
+
+    const downloadUrl = cobaltData.url || cobaltData.audio;
+    if (!downloadUrl) {
+      console.error("No download URL in Cobalt response");
+      return null;
+    }
+
+    // Download the actual file
+    console.log("Downloading from Cobalt URL:", downloadUrl);
+    const fileResponse = await fetch(downloadUrl);
+    
+    if (!fileResponse.ok) {
+      console.error("Failed to download file from Cobalt URL");
+      return null;
+    }
+
+    const arrayBuffer = await fileResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const contentType = fileResponse.headers.get("content-type") || 
+      (format === "audio" ? "audio/mpeg" : "video/mp4");
+
+    console.log(`Downloaded ${format}: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+    
+    return { buffer, contentType };
+  } catch (error) {
+    console.error("Cobalt download failed:", error);
+    return null;
+  }
 }
 
 // Comprehensive Gemini 3 Flash Video Analysis Prompt
@@ -163,60 +206,43 @@ export async function POST(
     let audioUrl: string | null = null;
     let videoUrl: string | null = null;
     
-    const tempDir = tmpdir();
-    const audioTempPath = join(tempDir, `${linkId}_audio.mp3`);
-    const videoTempPath = join(tempDir, `${linkId}_video.mp4`);
+    // Step 1: Try to download audio using Cobalt API
+    console.log("Step 1: Downloading audio with Cobalt API...");
     
-    // Step 1: Try to download audio from YouTube using yt-dlp
-    console.log("Step 1: Downloading audio with yt-dlp...");
-    
-    try {
-      await downloadWithYtDlp(videoId, audioTempPath, "audio");
-      audioBuffer = await readFile(audioTempPath);
-      console.log(`Downloaded audio: ${(audioBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+    const audioResult = await downloadWithCobalt(link.url, "audio");
+    if (audioResult) {
+      audioBuffer = audioResult.buffer;
       
       // Upload audio to Railway Storage
       const audioFileName = `media/links/${linkId}/audio.mp3`;
       const storage = getRailwayStorage();
       const { error: uploadError } = await storage.upload(audioFileName, audioBuffer, {
-        contentType: "audio/mpeg",
+        contentType: audioResult.contentType,
       });
 
       if (!uploadError) {
         const { signedUrl } = await storage.createSignedUrl(audioFileName, 60 * 60 * 24 * 365);
         audioUrl = signedUrl;
+        console.log("Audio uploaded to storage:", audioUrl);
       }
-      
-      // Cleanup temp file
-      await unlink(audioTempPath).catch(() => {});
-    } catch (downloadError) {
-      console.error("Audio download failed:", downloadError);
-      await unlink(audioTempPath).catch(() => {});
     }
 
-    // Step 2: Try to download video using yt-dlp
-    console.log("Step 2: Downloading video with yt-dlp...");
-    try {
-      await downloadWithYtDlp(videoId, videoTempPath, "video");
-      const videoBuffer = await readFile(videoTempPath);
-      console.log(`Downloaded video: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
-
+    // Step 2: Try to download video using Cobalt API
+    console.log("Step 2: Downloading video with Cobalt API...");
+    
+    const videoResult = await downloadWithCobalt(link.url, "video");
+    if (videoResult) {
       const videoFileName = `media/links/${linkId}/video.mp4`;
       const storage = getRailwayStorage();
-      const { error: videoUploadError } = await storage.upload(videoFileName, videoBuffer, {
-        contentType: "video/mp4",
+      const { error: videoUploadError } = await storage.upload(videoFileName, videoResult.buffer, {
+        contentType: videoResult.contentType,
       });
 
       if (!videoUploadError) {
         const { signedUrl: videoSignedUrl } = await storage.createSignedUrl(videoFileName, 60 * 60 * 24 * 365);
         videoUrl = videoSignedUrl;
+        console.log("Video uploaded to storage:", videoUrl);
       }
-      
-      // Cleanup temp file
-      await unlink(videoTempPath).catch(() => {});
-    } catch (videoDownloadError) {
-      console.error("Video download failed:", videoDownloadError);
-      await unlink(videoTempPath).catch(() => {});
     }
 
     // Step 3: Full Gemini 3 Flash Analysis
